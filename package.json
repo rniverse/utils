@@ -1,5 +1,5 @@
 {
-	"name": "utils",
+	"name": "@rniverse/utils",
 	"module": "index.ts",
 	"type": "module",
 	"private": true,
