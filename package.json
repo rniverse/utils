@@ -1,10 +1,16 @@
 {
 	"name": "@rniverse/utils",
 	"version": "0.0.1",
-	"module": "index.ts",
 	"type": "module",
-	"private": true,
+	"main": "dist/index.js",
+	"exports": {
+		".": "./dist/index.js"
+	},
+	"files": [
+		"dist"
+	],
 	"scripts": {
+		"build": "bun run tsc --project tsconfig.build.json",
 		"lint": "biome check --write",
 		"biome": "biome"
 	},
