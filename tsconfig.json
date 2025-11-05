@@ -29,6 +29,8 @@
 		"paths": {
 			"@utils": ["./lib/utils"],
 			"@utils/*": ["./lib/utils/*"],
+			"@type": ["./lib/type"],
+			"@type/*": ["./lib/type/*"],
 			"@context": ["lib/utils/context"],
 			"@context/*": ["lib/utils/context/*"]
 		}
