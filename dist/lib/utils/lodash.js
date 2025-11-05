@@ -18,6 +18,45 @@ export const cleanup = (obj, clear = isNil) => {
     }
     return obj;
 };
+export const pickOne = (obj, keys, df) => {
+    if (!Array.isArray(keys)) {
+        keys = [keys];
+    }
+    for (const key of keys) {
+        const value = lodash.get(obj, key);
+        if (isNil(value)) {
+            continue;
+        }
+        return value;
+    }
+    return df;
+};
+export const templated = (template, input) => {
+    const result = {};
+    for (const [key, config] of Object.entries(template)) {
+        let value;
+        if (isNil(config)) {
+            value = undefined;
+        }
+        else {
+            if (config.hardcode !== undefined) {
+                value = config.hardcode;
+            }
+            else if (config.getters && config.getters.length) {
+                value = _.pickOne(input, config.getters, undefined);
+            }
+            else if (config.now) {
+                value = new Date().toISOString();
+            }
+            if (_.isNil(value))
+                value = config.default ?? value;
+        }
+        _.set(result, key, value);
+    }
+    // return _.cleanup(result);
+    return result;
+};
+lodash.template(JSON.stringify({}), { variable: 'data' });
 // Create a new object with lodash methods plus cleanup
-export const _ = Object.assign({}, lodash, { cleanup });
+export const _ = Object.assign({}, lodash, { cleanup, pickOne, templated });
 //# sourceMappingURL=lodash.js.map
