@@ -1,4 +1,4 @@
-import { _ } from "@utils";
+import { _ } from '@utils';
 
 declare global {
 	interface String {
@@ -10,7 +10,7 @@ String.prototype.fmt = function (...args: any[]): string {
 	if (args.length) {
 		const t = typeof args[0];
 		const params: any =
-			t === "string" || t === "number"
+			t === 'string' || t === 'number'
 				? Array.prototype.slice.call(args)
 				: args[0];
 
@@ -24,7 +24,7 @@ String.prototype.fmt = function (...args: any[]): string {
 				return String(value);
 			}
 			// Try case-insensitive match if exact key not found
-			if (typeof params === "object" && params !== null) {
+			if (typeof params === 'object' && params !== null) {
 				const lowerKey = key.toLowerCase();
 				for (const paramKey in params as any) {
 					if (paramKey.toLowerCase() === lowerKey) {

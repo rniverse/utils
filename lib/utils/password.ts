@@ -1,1 +1,1 @@
-export { password } from "bun";
+export { password } from 'bun';

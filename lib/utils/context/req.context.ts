@@ -1,25 +1,60 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-import { uuid } from "../id";
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { uuid } from '../id';
 
-type RequestContext = {
-	requestId: string;
+export type TRequestContext = {
+	requestId?: string;
+	userId?: string;
 	[key: string]: any;
 };
 
-export const requestContext = new AsyncLocalStorage<RequestContext>();
+export class RequestContext {
+	private cxt: AsyncLocalStorage<TRequestContext>;
 
-export const getRequestId = (): string | null => {
-	return requestContext.getStore()?.requestId ?? null;
-};
+	constructor() {
+		this.cxt = new AsyncLocalStorage<TRequestContext>();
+	}
 
-export const getUserId = (): string | null => {
-	return requestContext.getStore()?.userId ?? null;
-};
+	withRequestId(custom?: Record<string, any>) {
+		return (_context?: any) => {
+			const requestId = custom?.requestId ?? uuid.generate();
+			const store = { requestId, ...(custom ?? {}) };
+			this.cxt.enterWith(store);
+			return { requestId };
+		};
+	}
 
-export const withRequestId = (custom?: Record<string, any>) => {
-	return () => {
-		const requestId = uuid.generate();
-		requestContext.enterWith({ requestId, ...(custom ?? {}) });
-		return {};
-	};
-};
+	setUserId(userId: string) {
+		const store = this.cxt.getStore();
+		if (store) {
+			this.cxt.enterWith({ ...store, userId });
+		}
+	}
+
+	setRequestContext(key: string, value: any) {
+		const store = this.cxt.getStore();
+		if (store) {
+			this.cxt.enterWith({ ...store, [key]: value });
+		}
+	}
+
+	getRequestId(): string | null {
+		const store = this.cxt.getStore();
+		return store?.requestId ?? null;
+	}
+
+	getUserId(): string | null {
+		const store = this.cxt.getStore();
+		return store?.userId ?? null;
+	}
+
+	getContextValue(key: string, cxt?: typeof this.cxt): any {
+		const store = (cxt ?? this.cxt).getStore();
+		return store ? store[key] : null;
+	}
+
+	getContext(): AsyncLocalStorage<TRequestContext> {
+		return this.cxt;
+	}
+}
+
+export const cxt$req = new RequestContext();

@@ -1,1 +1,1 @@
-export * from "undici";
+export * from 'undici';

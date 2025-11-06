@@ -1,12 +1,12 @@
-import { describe, expect, test } from "bun:test";
-import { ulid, uuid } from "../lib/utils/id";
+import { describe, expect, test } from 'bun:test';
+import { ulid, uuid } from '../lib/utils/id';
 
-describe("ID utilities", () => {
-	describe("UUID v7", () => {
-		test("should generate a valid UUID v7", () => {
+describe('ID utilities', () => {
+	describe('UUID v7', () => {
+		test('should generate a valid UUID v7', () => {
 			const id = uuid.generate();
 			expect(id).toBeDefined();
-			expect(typeof id).toBe("string");
+			expect(typeof id).toBe('string');
 
 			// UUID v7 format: xxxxxxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx
 			const uuidPattern =
@@ -14,7 +14,7 @@ describe("ID utilities", () => {
 			expect(uuidPattern.test(id)).toBe(true);
 		});
 
-		test("should generate unique UUIDs", () => {
+		test('should generate unique UUIDs', () => {
 			const id1 = uuid.generate();
 			const id2 = uuid.generate();
 			const id3 = uuid.generate();
@@ -24,7 +24,7 @@ describe("ID utilities", () => {
 			expect(id1).not.toBe(id3);
 		});
 
-		test("should generate multiple unique UUIDs in loop", () => {
+		test('should generate multiple unique UUIDs in loop', () => {
 			const ids = new Set<string>();
 			const count = 100;
 
@@ -35,11 +35,11 @@ describe("ID utilities", () => {
 			expect(ids.size).toBe(count);
 		});
 
-		test("should extract timestamp from UUID v7", () => {
+		test('should extract timestamp from UUID v7', () => {
 			const id = uuid.generate();
 			const timestamp = uuid.extractTime(id);
 
-			expect(typeof timestamp).toBe("number");
+			expect(typeof timestamp).toBe('number');
 			expect(timestamp).toBeGreaterThan(0);
 
 			// Timestamp should be close to current time (within a few seconds)
@@ -48,7 +48,7 @@ describe("ID utilities", () => {
 			expect(diff).toBeLessThan(5000); // within 5 seconds
 		});
 
-		test("should extract increasing timestamps", () => {
+		test('should extract increasing timestamps', () => {
 			const id1 = uuid.generate();
 			const timestamp1 = uuid.extractTime(id1);
 
@@ -59,7 +59,7 @@ describe("ID utilities", () => {
 			expect(timestamp2).toBeGreaterThanOrEqual(timestamp1);
 		});
 
-		test("should extract valid timestamp from known UUID v7", () => {
+		test('should extract valid timestamp from known UUID v7', () => {
 			// Create a UUID v7 with known timestamp
 			// UUID v7 format has timestamp in first 48 bits
 			const timestamp = Date.now();
@@ -70,7 +70,7 @@ describe("ID utilities", () => {
 			expect(Math.abs(extracted - timestamp)).toBeLessThan(100);
 		});
 
-		test("UUIDs should be sortable by time", () => {
+		test('UUIDs should be sortable by time', () => {
 			const ids: string[] = [];
 			const timestamps: number[] = [];
 
@@ -92,11 +92,11 @@ describe("ID utilities", () => {
 		});
 	});
 
-	describe("ULID", () => {
-		test("should generate a valid ULID", () => {
+	describe('ULID', () => {
+		test('should generate a valid ULID', () => {
 			const id = ulid.generate();
 			expect(id).toBeDefined();
-			expect(typeof id).toBe("string");
+			expect(typeof id).toBe('string');
 			expect(id.length).toBe(26);
 
 			// ULID should only contain Crockford's Base32 alphabet
@@ -104,7 +104,7 @@ describe("ID utilities", () => {
 			expect(ulidPattern.test(id)).toBe(true);
 		});
 
-		test("should generate unique ULIDs", () => {
+		test('should generate unique ULIDs', () => {
 			const id1 = ulid.generate();
 			const id2 = ulid.generate();
 			const id3 = ulid.generate();
@@ -114,7 +114,7 @@ describe("ID utilities", () => {
 			expect(id1).not.toBe(id3);
 		});
 
-		test("should generate multiple unique ULIDs in loop", () => {
+		test('should generate multiple unique ULIDs in loop', () => {
 			const ids = new Set<string>();
 			const count = 100;
 
@@ -125,11 +125,11 @@ describe("ID utilities", () => {
 			expect(ids.size).toBe(count);
 		});
 
-		test("should extract timestamp from ULID", () => {
+		test('should extract timestamp from ULID', () => {
 			const id = ulid.generate();
 			const timestamp = ulid.extractTime(id);
 
-			expect(typeof timestamp).toBe("number");
+			expect(typeof timestamp).toBe('number');
 			expect(timestamp).toBeGreaterThan(0);
 
 			// Timestamp should be close to current time (within a few seconds)
@@ -138,7 +138,7 @@ describe("ID utilities", () => {
 			expect(diff).toBeLessThan(5000); // within 5 seconds
 		});
 
-		test("should extract increasing timestamps", () => {
+		test('should extract increasing timestamps', () => {
 			const id1 = ulid.generate();
 			const timestamp1 = ulid.extractTime(id1);
 
@@ -148,7 +148,7 @@ describe("ID utilities", () => {
 			expect(timestamp2).toBeGreaterThanOrEqual(timestamp1);
 		});
 
-		test("ULIDs should be lexicographically sortable", () => {
+		test('ULIDs should be lexicographically sortable', () => {
 			const ids: string[] = [];
 
 			// Generate IDs with small delays to ensure different timestamps
@@ -167,7 +167,7 @@ describe("ID utilities", () => {
 			}
 		});
 
-		test("should create monotonic ULID factory", () => {
+		test('should create monotonic ULID factory', () => {
 			const factory = ulid.ulidFactory();
 			const id1 = factory();
 			const id2 = factory();
@@ -180,7 +180,7 @@ describe("ID utilities", () => {
 			expect(id2 > id1).toBe(true);
 		});
 
-		test("monotonic factory should maintain order", () => {
+		test('monotonic factory should maintain order', () => {
 			const factory = ulid.ulidFactory();
 			const ids: string[] = [];
 
@@ -198,7 +198,7 @@ describe("ID utilities", () => {
 			}
 		});
 
-		test("monotonic factory should handle rapid generation", () => {
+		test('monotonic factory should handle rapid generation', () => {
 			const factory = ulid.ulidFactory();
 			const ids = new Set<string>();
 
@@ -211,15 +211,15 @@ describe("ID utilities", () => {
 			expect(ids.size).toBe(1000);
 		});
 
-		test("ULID should be case-insensitive safe", () => {
+		test('ULID should be case-insensitive safe', () => {
 			const id = ulid.generate();
 			// ULID uses uppercase letters only
 			expect(id).toBe(id.toUpperCase());
 		});
 	});
 
-	describe("UUID vs ULID comparison", () => {
-		test("both should generate valid IDs", () => {
+	describe('UUID vs ULID comparison', () => {
+		test('both should generate valid IDs', () => {
 			const uuidId = uuid.generate();
 			const ulidId = ulid.generate();
 
@@ -229,7 +229,7 @@ describe("ID utilities", () => {
 			expect(ulidId.length).toBe(26);
 		});
 
-		test("both should support timestamp extraction", () => {
+		test('both should support timestamp extraction', () => {
 			const uuidId = uuid.generate();
 			const ulidId = ulid.generate();
 
@@ -245,7 +245,7 @@ describe("ID utilities", () => {
 			expect(Math.abs(now - ulidTime)).toBeLessThan(5000);
 		});
 
-		test("both should be unique within batch", () => {
+		test('both should be unique within batch', () => {
 			const uuids = new Set<string>();
 			const ulids = new Set<string>();
 
@@ -259,8 +259,8 @@ describe("ID utilities", () => {
 		});
 	});
 
-	describe("Edge cases and performance", () => {
-		test("UUID should handle rapid generation", () => {
+	describe('Edge cases and performance', () => {
+		test('UUID should handle rapid generation', () => {
 			const ids = new Set<string>();
 			const count = 10000;
 
@@ -271,7 +271,7 @@ describe("ID utilities", () => {
 			expect(ids.size).toBe(count);
 		});
 
-		test("ULID should handle rapid generation", () => {
+		test('ULID should handle rapid generation', () => {
 			const ids = new Set<string>();
 			const count = 10000;
 
@@ -282,7 +282,7 @@ describe("ID utilities", () => {
 			expect(ids.size).toBe(count);
 		});
 
-		test("UUID timestamp extraction should be consistent", () => {
+		test('UUID timestamp extraction should be consistent', () => {
 			const id = uuid.generate();
 			const time1 = uuid.extractTime(id);
 			const time2 = uuid.extractTime(id);
@@ -290,7 +290,7 @@ describe("ID utilities", () => {
 			expect(time1).toBe(time2);
 		});
 
-		test("ULID timestamp extraction should be consistent", () => {
+		test('ULID timestamp extraction should be consistent', () => {
 			const id = ulid.generate();
 			const time1 = ulid.extractTime(id);
 			const time2 = ulid.extractTime(id);
@@ -298,9 +298,9 @@ describe("ID utilities", () => {
 			expect(time1).toBe(time2);
 		});
 
-		test("UUID should be formatted correctly", () => {
+		test('UUID should be formatted correctly', () => {
 			const id = uuid.generate();
-			const parts = id.split("-");
+			const parts = id.split('-');
 
 			expect(parts.length).toBe(5);
 			expect(parts[0]?.length).toBe(8);
@@ -310,7 +310,7 @@ describe("ID utilities", () => {
 			expect(parts[4]?.length).toBe(12);
 		});
 
-		test("ULID length should be consistent", () => {
+		test('ULID length should be consistent', () => {
 			for (let i = 0; i < 100; i++) {
 				const id = ulid.generate();
 				expect(id.length).toBe(26);
@@ -318,8 +318,8 @@ describe("ID utilities", () => {
 		});
 	});
 
-	describe("Time ordering", () => {
-		test("UUIDs generated later should have later timestamps", async () => {
+	describe('Time ordering', () => {
+		test('UUIDs generated later should have later timestamps', async () => {
 			const id1 = uuid.generate();
 			const time1 = uuid.extractTime(id1);
 
@@ -332,7 +332,7 @@ describe("ID utilities", () => {
 			expect(time2).toBeGreaterThan(time1);
 		});
 
-		test("ULIDs generated later should have later timestamps", async () => {
+		test('ULIDs generated later should have later timestamps', async () => {
 			const id1 = ulid.generate();
 			const time1 = ulid.extractTime(id1);
 
@@ -345,7 +345,7 @@ describe("ID utilities", () => {
 			expect(time2).toBeGreaterThan(time1);
 		});
 
-		test("ULIDs should be sortable as strings", async () => {
+		test('ULIDs should be sortable as strings', async () => {
 			const id1 = ulid.generate();
 			await new Promise((resolve) => setTimeout(resolve, 5));
 			const id2 = ulid.generate();

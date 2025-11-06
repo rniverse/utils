@@ -1,5 +1,5 @@
-import type { TemplateConfig, TObject } from "@type";
-import lodash from "lodash";
+import type { TemplateConfig, TObject } from '@type';
+import lodash from 'lodash';
 
 const isNil = lodash.isNil;
 export const cleanup = (
@@ -11,7 +11,7 @@ export const cleanup = (
 	if (Array.isArray(obj)) {
 		return obj.map((item) => cleanup(item, clear));
 	}
-	if (typeof obj === "object") {
+	if (typeof obj === 'object') {
 		return Object.keys(obj).reduce((acc, key) => {
 			if (clear(obj[key])) {
 				return acc;
@@ -23,29 +23,38 @@ export const cleanup = (
 	return obj;
 };
 
-export const pickOne = <T>(obj: T, keys: string[] | string, df?: T[keyof T]): any => {
+export const pickOne = <T>(
+	obj: T,
+	keys: string[] | string,
+	df?: T[keyof T],
+): any => {
 	if (!Array.isArray(keys)) {
 		keys = [keys];
 	}
 	for (const key of keys) {
 		const value = lodash.get(obj, key);
-		if (isNil(value)) { continue; }
+		if (isNil(value)) {
+			continue;
+		}
 		return value;
 	}
 	return df;
 };
 
-export const templated = (template: { [key: string]: TemplateConfig }, input: TObject) => {
+export const templated = (
+	template: { [key: string]: TemplateConfig },
+	input: TObject,
+) => {
 	const result: TObject = {};
 
 	for (const [key, config] of Object.entries(template)) {
-		let value;
+		let value: any;
 		if (isNil(config)) {
 			value = undefined;
 		} else {
 			if (config.hardcode !== undefined) {
 				value = config.hardcode;
-			} else if (config.getters && config.getters.length) {
+			} else if (config.getters?.length) {
 				value = _.pickOne(input, config.getters, undefined);
 			} else if (config.now) {
 				value = new Date().toISOString();
@@ -58,6 +67,5 @@ export const templated = (template: { [key: string]: TemplateConfig }, input: TO
 	return result;
 };
 
-lodash.template(JSON.stringify({}), { variable: 'data' });
 // Create a new object with lodash methods plus cleanup
 export const _ = Object.assign({}, lodash, { cleanup, pickOne, templated });

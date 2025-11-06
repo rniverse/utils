@@ -1,1 +1,1 @@
-export * from "./string.patch";
+export * from './string.patch';
