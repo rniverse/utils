@@ -1,4 +1,4 @@
-import lodash from "lodash";
+import lodash from 'lodash';
 const isNil = lodash.isNil;
 export const cleanup = (obj, clear = isNil) => {
     // Perform cleanup operations on the object nestedly in place
@@ -7,7 +7,7 @@ export const cleanup = (obj, clear = isNil) => {
     if (Array.isArray(obj)) {
         return obj.map((item) => cleanup(item, clear));
     }
-    if (typeof obj === "object") {
+    if (typeof obj === 'object') {
         return Object.keys(obj).reduce((acc, key) => {
             if (clear(obj[key])) {
                 return acc;
@@ -42,7 +42,7 @@ export const templated = (template, input) => {
             if (config.hardcode !== undefined) {
                 value = config.hardcode;
             }
-            else if (config.getters && config.getters.length) {
+            else if (config.getters?.length) {
                 value = _.pickOne(input, config.getters, undefined);
             }
             else if (config.now) {
@@ -56,7 +56,6 @@ export const templated = (template, input) => {
     // return _.cleanup(result);
     return result;
 };
-lodash.template(JSON.stringify({}), { variable: 'data' });
 // Create a new object with lodash methods plus cleanup
 export const _ = Object.assign({}, lodash, { cleanup, pickOne, templated });
 //# sourceMappingURL=lodash.js.map

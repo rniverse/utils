@@ -1,9 +1,9 @@
-import { _ } from "@utils";
+import { _ } from '@utils';
 String.prototype.fmt = function (...args) {
     let str = this.toString();
     if (args.length) {
         const t = typeof args[0];
-        const params = t === "string" || t === "number"
+        const params = t === 'string' || t === 'number'
             ? Array.prototype.slice.call(args)
             : args[0];
         // Find all placeholders in the template using regex (case-insensitive)
@@ -16,7 +16,7 @@ String.prototype.fmt = function (...args) {
                 return String(value);
             }
             // Try case-insensitive match if exact key not found
-            if (typeof params === "object" && params !== null) {
+            if (typeof params === 'object' && params !== null) {
                 const lowerKey = key.toLowerCase();
                 for (const paramKey in params) {
                     if (paramKey.toLowerCase() === lowerKey) {

@@ -1,2 +1,2 @@
-export * from "undici";
+export * from 'undici';
 //# sourceMappingURL=undici.js.map

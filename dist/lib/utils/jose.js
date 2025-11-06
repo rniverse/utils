@@ -1,3 +1,3 @@
-import * as jwt from "jose";
+import * as jwt from 'jose';
 export const jose = jwt;
 //# sourceMappingURL=jose.js.map
