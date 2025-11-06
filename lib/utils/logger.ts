@@ -5,8 +5,11 @@ import { cxt$req, type TRequestContext } from './context';
 
 // Create a pretty print stream that works synchronously
 
-const lf = (key: string) => `{if ${key}}${key}:{${key}} - {end}`;
-const mlf = (keys: string[]) => keys.map(lf).join('');
+const lf = (key: string, label?: string) => `{if ${key}}${label ?? key}:{${key}} - {end}`;
+const mlf = (keys: string[]) => keys.map(k => {
+	const [key, label] = k.split(',');
+	return lf(key ?? k, label ?? k);
+}).join('');
 
 const stream = pretty({
 	colorize: true,
@@ -17,8 +20,8 @@ const stream = pretty({
 	//   console.log("Log message format:", log.level, log);
 	// 	return `[${label}] ${log.rid ? `[rid:${log.rid}] ` : ""}${log[messageKey]}`;
 	// },
-	messageFormat: `${mlf(['rid'])}{msg}`,
-	ignore: 'rid,uid,pid,hostname',
+	messageFormat: `${mlf(['req_id', 'user_id'])}{msg}`,
+	ignore: 'req_id,user_id,pid,hostname',
 });
 
 export const createLogger = (
@@ -33,10 +36,10 @@ export const createLogger = (
 		{
 			level: process.env.LOG_LEVEL || 'info',
 			mixin() {
-				const [rid, uid] = ['requestId', 'userId'].map((key) => {
+				const [req_id, user_id] = ['requestId', 'userId'].map((key) => {
 					return cxt$req.getContextValue(key, context);
 				});
-				return { rid, uid };
+				return { req_id, user_id };
 			},
 		},
 		stream,
