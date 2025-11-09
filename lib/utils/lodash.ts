@@ -67,5 +67,14 @@ export const templated = (
 	return result;
 };
 
+export const titleCase = (str: string): string => {
+	return _.startCase(_.camelCase(str));
+};
+
 // Create a new object with lodash methods plus cleanup
-export const _ = Object.assign({}, lodash, { cleanup, pickOne, templated });
+export const _ = Object.assign({}, lodash, {
+	cleanup,
+	pickOne,
+	templated,
+	titleCase
+});
