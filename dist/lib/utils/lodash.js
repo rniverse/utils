@@ -56,6 +56,14 @@ export const templated = (template, input) => {
     // return _.cleanup(result);
     return result;
 };
+export const titleCase = (str) => {
+    return _.startCase(_.camelCase(str));
+};
 // Create a new object with lodash methods plus cleanup
-export const _ = Object.assign({}, lodash, { cleanup, pickOne, templated });
+export const _ = Object.assign({}, lodash, {
+    cleanup,
+    pickOne,
+    templated,
+    titleCase
+});
 //# sourceMappingURL=lodash.js.map
