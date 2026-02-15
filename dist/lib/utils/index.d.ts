@@ -8,6 +8,7 @@ export * from './lodash';
 export * from './logger';
 export * from './password';
 export * from './random';
+export * from './seq';
 export * from './undici';
 export * from './valibot';
 export * from './zlib';
