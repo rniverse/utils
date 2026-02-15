@@ -1,5 +1,6 @@
 {
 	"name": "@rniverse/utils",
+	"version": "0.0.1",
 	"module": "index.ts",
 	"type": "module",
 	"private": true,
@@ -9,8 +10,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.2",
-		"@types/bun": "latest",
-		"@types/lodash": "^4.17.20"
+		"@types/bun": "latest"
 	},
 	"peerDependencies": {
 		"bullmq": "^5.63.0",
@@ -21,8 +21,8 @@
 	"dependencies": {
 		"commander": "^14.0.2",
 		"dayjs": "^1.11.19",
+		"es-toolkit": "^1.44.0",
 		"jose": "^6.1.0",
-		"lodash": "^4.17.21",
 		"ulid": "^3.0.1",
 		"undici": "^7.16.0",
 		"valibot": "^1.1.0"

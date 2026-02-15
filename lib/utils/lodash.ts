@@ -1,5 +1,7 @@
 import type { TemplateConfig, TObject } from '@type';
-import lodash from 'lodash';
+// import lodash from 'lodash';
+import * as lodash from 'es-toolkit/compat';
+import * as eskit from 'es-toolkit';
 
 const isNil = lodash.isNil;
 export const cleanup = (
@@ -61,7 +63,7 @@ export const templated = (
 			}
 			if (_.isNil(value)) value = config.default ?? value;
 		}
-		_.set(result, key, value);
+		lodash.set(result, key, value);
 	}
 	// return _.cleanup(result);
 	return result;
@@ -72,7 +74,11 @@ export const titleCase = (str: string): string => {
 };
 
 // Create a new object with lodash methods plus cleanup
-export const _ = Object.assign({}, lodash, {
+export const _ = Object.assign({}, {
+	get: lodash.get,
+	set: lodash.set,
+	has: lodash.has,
+}, eskit, {
 	cleanup,
 	pickOne,
 	templated,
