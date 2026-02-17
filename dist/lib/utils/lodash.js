@@ -1,6 +1,6 @@
+import * as eskit from 'es-toolkit';
 // import lodash from 'lodash';
 import * as lodash from 'es-toolkit/compat';
-import * as eskit from 'es-toolkit';
 const isNil = lodash.isNil;
 export const cleanup = (obj, clear = isNil) => {
     // Perform cleanup operations on the object nestedly in place
@@ -70,6 +70,6 @@ export const _ = Object.assign({}, {
     cleanup,
     pickOne,
     templated,
-    titleCase
+    titleCase,
 });
 //# sourceMappingURL=lodash.js.map

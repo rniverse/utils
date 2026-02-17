@@ -1,6 +1,6 @@
-import type { TemplateConfig, TObject } from '@type';
-import * as lodash from 'es-toolkit/compat';
 import * as eskit from 'es-toolkit';
+import * as lodash from 'es-toolkit/compat';
+import type { TemplateConfig, TObject } from '../type';
 export declare const cleanup: (obj: any, clear?: (value: any) => boolean) => any;
 export declare const pickOne: <T>(obj: T, keys: string[] | string, df?: T[keyof T]) => any;
 export declare const templated: (template: {

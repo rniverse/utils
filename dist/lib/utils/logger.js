@@ -3,10 +3,12 @@ import pretty from 'pino-pretty';
 import { cxt$req } from './context';
 // Create a pretty print stream that works synchronously
 const lf = (key, label) => `{if ${key}}${label ?? key}:{${key}} - {end}`;
-const mlf = (keys) => keys.map(k => {
+const mlf = (keys) => keys
+    .map((k) => {
     const [key, label] = k.split(',');
     return lf(key ?? k, label ?? k);
-}).join('');
+})
+    .join('');
 const stream = pretty({
     colorize: true,
     translateTime: 'yyyy-mm-dd HH:MM:ss l',

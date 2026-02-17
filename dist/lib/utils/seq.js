@@ -49,13 +49,13 @@ const createSeqGenerator = () => {
     let lock = Promise.resolve();
     return async () => {
         await lock;
-        let resolve;
+        let resolve = null;
         lock = new Promise((r) => (resolve = r));
         try {
             return ++code;
         }
         finally {
-            resolve();
+            resolve?.();
         }
     };
 };
