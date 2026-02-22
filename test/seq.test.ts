@@ -1,5 +1,5 @@
-import { describe, test, expect } from 'bun:test';
-import { sync$seq, async$seq, getCode } from '@utils/seq';
+import { describe, expect, test } from 'bun:test';
+import { async$seq, getCode, sync$seq } from '@utils/seq';
 
 describe('seq utility', () => {
 	describe('getCode', () => {
@@ -102,8 +102,16 @@ describe('seq utility', () => {
 		test('concurrent calls produce unique values', async () => {
 			const next = async$seq.get({ type: 'code', length: 6 });
 			const results = await Promise.all([
-				next(), next(), next(), next(), next(),
-				next(), next(), next(), next(), next(),
+				next(),
+				next(),
+				next(),
+				next(),
+				next(),
+				next(),
+				next(),
+				next(),
+				next(),
+				next(),
 			]);
 			const unique = new Set(results);
 			expect(unique.size).toBe(10);

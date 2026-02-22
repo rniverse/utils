@@ -5,11 +5,15 @@ import { cxt$req, type TRequestContext } from './context';
 
 // Create a pretty print stream that works synchronously
 
-const lf = (key: string, label?: string) => `{if ${key}}${label ?? key}:{${key}} - {end}`;
-const mlf = (keys: string[]) => keys.map(k => {
-	const [key, label] = k.split(',');
-	return lf(key ?? k, label ?? k);
-}).join('');
+const lf = (key: string, label?: string) =>
+	`{if ${key}}${label ?? key}:{${key}} - {end}`;
+const mlf = (keys: string[]) =>
+	keys
+		.map((k) => {
+			const [key, label] = k.split(',');
+			return lf(key ?? k, label ?? k);
+		})
+		.join('');
 
 const stream = pretty({
 	colorize: true,
@@ -40,6 +44,9 @@ export const createLogger = (
 					return cxt$req.getContextValue(key, context);
 				});
 				return { req_id, user_id };
+			},
+			customLevels: {
+				log: 25,
 			},
 		},
 		stream,

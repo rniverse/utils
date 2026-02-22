@@ -34,7 +34,8 @@ export interface SeqOptions {
 }
 
 /** Pad a string to the given length with leading zeros */
-export const getCode = (str: string, length = 10): string => str.padStart(length, '0');
+export const getCode = (str: string, length = 10): string =>
+	str.padStart(length, '0');
 
 /** Format a raw bigint sequence value according to options */
 const formatSeq = (
@@ -67,12 +68,15 @@ const createSeqGenerator = () => {
 
 	return async () => {
 		await lock;
-		let resolve: () => void;
-		lock = new Promise<void>((r) => (resolve = r));
+		let resolve: () => void = () => {};
+		lock = new Promise<void>((r) => {
+			resolve = r;
+			return r;
+		});
 		try {
 			return ++code;
 		} finally {
-			resolve!();
+			resolve();
 		}
 	};
 };
