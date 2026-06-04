@@ -3,6 +3,7 @@ export * from './bullmq';
 export * from './commander';
 export * from './context';
 export * from './datetime';
+export * from './generic';
 export * from './id';
 export * from './jose';
 export * from './lodash';
@@ -12,5 +13,4 @@ export * from './random';
 export * from './seq';
 export * from './undici';
 export * from './valibot';
-export * from './zlib';
 //# sourceMappingURL=index.d.ts.map
