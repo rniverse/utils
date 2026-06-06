@@ -1,7 +1,6 @@
-import type { AsyncLocalStorage } from 'node:async_hooks';
 import { pino } from 'pino';
 import pretty from 'pino-pretty';
-import { cxt$req, type TRequestContext } from './context';
+import { cxt$req } from './context';
 
 // Create a pretty print stream that works synchronously
 
@@ -28,8 +27,7 @@ const stream = pretty({
 	ignore: 'reqId,userId,pid,hostname',
 });
 
-export const createLogger = (
-) => {
+export const createLogger = () => {
 	// console.log(`is context same ?`, context === cxt$req.getContext());
 	return pino(
 		{
