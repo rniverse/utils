@@ -26,10 +26,10 @@
 /** Pad a string to the given length with leading zeros */
 export const getCode = (str, length = 10) => str.padStart(length, '0');
 /** Format a raw bigint sequence value according to options */
-const formatSeq = (seq, { prefix, type, length = 10 } = {}) => {
+const formatSeq = (seq, { prefix, type, length = 10, radix = 36 } = {}) => {
     let code = seq;
     if (type === 'code')
-        code = getCode(seq.toString(36), length);
+        code = getCode(seq.toString(radix), length);
     if (prefix)
         code = `${prefix}-${code}`;
     return code.toString();

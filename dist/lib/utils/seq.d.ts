@@ -30,6 +30,8 @@ export interface SeqOptions {
     type?: string;
     /** Pad length for 'code' type (default: 10) */
     length?: number;
+    /** Radix for 'code' type (default: 36) */
+    radix?: number;
 }
 /** Pad a string to the given length with leading zeros */
 export declare const getCode: (str: string, length?: number) => string;
