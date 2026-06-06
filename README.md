@@ -58,6 +58,38 @@ cxt$req.setRequestContext('tenantId', 'acme-inc');
 const currentReqId = cxt$req.getRequestId();
 ```
 
+
+```
+non Elysia request should use runWithContext
+
+import { sleep } from 'bun';
+import { cxt$req, log, runWithContext } from './utils';
+
+if (require.main === module) {
+	console.log(
+		'BEFORE: This is a utility library. Please import the functions you need.',
+	);
+	log.info(
+		'BEFORE: This is a utility library. Please import the functions you need.',
+	);
+	const w1 = async () => {
+		await sleep(100);
+		log.info('Inside w1');
+		cxt$req.setUserId('w1-user');
+		log.info('Inside w1 after setting user ID');
+	};
+
+	const w2 = async () => {
+		await sleep(500);
+		cxt$req.setUserId('w2-user');
+		log.info('Inside w2');
+		log.info('Inside w2 after setting user ID');
+	};
+	await Promise.all([runWithContext(w1), runWithContext(w2)]);
+}
+
+```
+
 ---
 
 ## ID Generation

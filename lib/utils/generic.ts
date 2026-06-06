@@ -5,8 +5,8 @@ export const safeParseInt = (
 ): number | null => {
 	try {
 		const parsed = parseInt(value, radix);
-		return isNaN(parsed) ? base : parsed;
-	} catch (error) {
+		return Number.isNaN(parsed) ? base : parsed;
+	} catch (_error) {
 		return base;
 	}
 };
