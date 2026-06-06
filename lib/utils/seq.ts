@@ -31,6 +31,8 @@ export interface SeqOptions {
 	type?: string;
 	/** Pad length for 'code' type (default: 10) */
 	length?: number;
+	/** Radix for 'code' type (default: 36) */
+	radix?: number;
 }
 
 /** Pad a string to the given length with leading zeros */
@@ -40,10 +42,10 @@ export const getCode = (str: string, length = 10): string =>
 /** Format a raw bigint sequence value according to options */
 const formatSeq = (
 	seq: bigint,
-	{ prefix, type, length = 10 }: SeqOptions = {},
+	{ prefix, type, length = 10, radix = 36 }: SeqOptions = {},
 ): string => {
 	let code: string | bigint = seq;
-	if (type === 'code') code = getCode(seq.toString(36), length);
+	if (type === 'code') code = getCode(seq.toString(radix), length);
 	if (prefix) code = `${prefix}-${code}`;
 	return code.toString();
 };
