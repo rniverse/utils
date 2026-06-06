@@ -5,6 +5,8 @@ export class RequestContext {
     constructor() {
         this.cxt = new AsyncLocalStorage();
     }
+    // For Elysia .derive() — enterWith is correct here because
+    // Elysia has already established the async context for the request
     withRequestId(custom) {
         return (_context) => {
             const requestId = custom?.requestId ?? uuid.generate();
@@ -13,6 +15,12 @@ export class RequestContext {
             return { requestId };
         };
     }
+    // For scripts/workers — run() gives proper isolation
+    run(store, fn) {
+        return this.cxt.run(store, fn);
+    }
+    // setUserId/setRequestContext are fine with enterWith
+    // as long as they're called inside an established context
     setUserId(userId) {
         const store = this.cxt.getStore();
         if (store) {
@@ -26,20 +34,21 @@ export class RequestContext {
         }
     }
     getRequestId() {
-        const store = this.cxt.getStore();
-        return store?.requestId ?? null;
+        return this.cxt.getStore()?.requestId ?? null;
     }
     getUserId() {
-        const store = this.cxt.getStore();
-        return store?.userId ?? null;
+        return this.cxt.getStore()?.userId ?? null;
     }
-    getContextValue(key, cxt) {
-        const store = (cxt ?? this.cxt).getStore();
-        return store ? store[key] : null;
+    getContextValue(key) {
+        return this.cxt.getStore()?.[key] ?? null;
     }
     getContext() {
         return this.cxt;
     }
 }
 export const cxt$req = new RequestContext();
+export const runWithContext = (fn, custom) => {
+    const requestId = custom?.requestId ?? uuid.generate();
+    return cxt$req.run({ requestId, ...(custom ?? {}) }, fn);
+};
 //# sourceMappingURL=req.context.js.map

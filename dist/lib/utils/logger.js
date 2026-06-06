@@ -18,26 +18,23 @@ const stream = pretty({
     //   console.log("Log message format:", log.level, log);
     // 	return `[${label}] ${log.rid ? `[rid:${log.rid}] ` : ""}${log[messageKey]}`;
     // },
-    messageFormat: `${mlf(['req_id', 'user_id'])}{msg}`,
-    ignore: 'req_id,user_id,pid,hostname',
+    messageFormat: `${mlf(['reqId', 'userId'])}{msg}`,
+    ignore: 'reqId,userId,pid,hostname',
 });
-export const createLogger = (context, _from) => {
-    if (_from) {
-        console.trace(`Creating logger${_from ? ` from ${_from}` : ''}`);
-    }
+export const createLogger = () => {
     // console.log(`is context same ?`, context === cxt$req.getContext());
     return pino({
         level: process.env.LOG_LEVEL || 'info',
         mixin() {
-            const [req_id, user_id] = ['requestId', 'userId'].map((key) => {
-                return cxt$req.getContextValue(key, context);
+            const [reqId, userId] = ['requestId', 'userId'].map((key) => {
+                return cxt$req.getContextValue(key);
             });
-            return { req_id, user_id };
+            return { reqId, userId };
         },
         customLevels: {
             log: 25,
         },
     }, stream);
 };
-export const log = createLogger(cxt$req.getContext());
+export const log = createLogger();
 //# sourceMappingURL=logger.js.map

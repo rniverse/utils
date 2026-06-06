@@ -10,12 +10,14 @@ export declare class RequestContext {
     withRequestId(custom?: Record<string, any>): (_context?: any) => {
         requestId: any;
     };
+    run<T>(store: TRequestContext, fn: () => T): T;
     setUserId(userId: string): void;
     setRequestContext(key: string, value: any): void;
     getRequestId(): string | null;
     getUserId(): string | null;
-    getContextValue(key: string, cxt?: typeof this.cxt): any;
+    getContextValue(key: string): any;
     getContext(): AsyncLocalStorage<TRequestContext>;
 }
 export declare const cxt$req: RequestContext;
+export declare const runWithContext: <T>(fn: () => T, custom?: Record<string, any>) => T;
 //# sourceMappingURL=req.context.d.ts.map

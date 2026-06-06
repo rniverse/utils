@@ -1,9 +1,9 @@
 export const safeParseInt = (value, base, radix = 10) => {
     try {
         const parsed = parseInt(value, radix);
-        return isNaN(parsed) ? base : parsed;
+        return Number.isNaN(parsed) ? base : parsed;
     }
-    catch (error) {
+    catch (_error) {
         return base;
     }
 };
