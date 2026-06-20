@@ -1,12 +1,28 @@
 export const safeParseInt = (
-	value: string | undefined,
-	base: number,
-	radix: number = 10,
+	value: unknown,
+	fallback = 0,
+	radix = 10,
 ): number => {
-	try {
-		const parsed = parseInt(value || '', radix);
-		return Number.isNaN(parsed) ? base : parsed;
-	} catch (_error) {
-		return base;
-	}
+	const parsed = Number.parseInt(String(value ?? ''), radix);
+	return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+export const boundedParseInt = (
+	value: unknown,
+	{
+		min,
+		max,
+		fallback = 0,
+	}: {
+		min?: number;
+		max?: number;
+		fallback?: number;
+	},
+): number => {
+	const parsed = safeParseInt(value, fallback);
+
+	if (min !== undefined && parsed < min) return min;
+	if (max !== undefined && parsed > max) return max;
+
+	return parsed;
 };

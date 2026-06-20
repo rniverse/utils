@@ -56,20 +56,19 @@ export const templated = (
 			if (config.hardcode !== undefined) {
 				value = config.hardcode;
 			} else if (config.getters?.length) {
-				value = _.pickOne(input, config.getters, undefined);
+				value = pickOne(input, config.getters, undefined);
 			} else if (config.now) {
 				value = new Date().toISOString();
 			}
-			if (_.isNil(value)) value = config.default ?? value;
+			if (isNil(value)) value = config.default ?? value;
 		}
 		lodash.set(result, key, value);
 	}
-	// return _.cleanup(result);
 	return result;
 };
 
 export const titleCase = (str: string): string => {
-	return _.startCase(_.camelCase(str));
+	return lodash.startCase(lodash.camelCase(str));
 };
 
 // Create a new object with lodash methods plus cleanup
