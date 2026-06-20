@@ -69,6 +69,4 @@ dayjs.extend(localizedFormat);
 dayjs.extend(buddhistEra);
 dayjs.extend(updateLocale);
 export const date = dayjs;
-// console.log("Datetime utilities initialized.");
-// console.log("Dayjs", date());
 //# sourceMappingURL=datetime.js.map

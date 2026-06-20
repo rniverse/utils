@@ -1,2 +1,7 @@
-export declare const safeParseInt: (value: string | undefined, base: number, radix?: number) => number;
+export declare const safeParseInt: (value: unknown, fallback?: number, radix?: number) => number;
+export declare const boundedParseInt: (value: unknown, { min, max, fallback, }: {
+    min?: number;
+    max?: number;
+    fallback?: number;
+}) => number;
 //# sourceMappingURL=generic.d.ts.map
