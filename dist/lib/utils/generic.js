@@ -11,4 +11,5 @@ export const boundedParseInt = (value, { min, max, fallback = 0, }) => {
     return parsed;
 };
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+export const isBun = () => typeof Bun !== 'undefined' && process.versions.bun;
 //# sourceMappingURL=generic.js.map

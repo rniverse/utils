@@ -5,4 +5,5 @@ export declare const boundedParseInt: (value: unknown, { min, max, fallback, }: 
     fallback?: number;
 }) => number;
 export declare const sleep: (ms: number) => Promise<void>;
+export declare const isBun: () => string | false;
 //# sourceMappingURL=generic.d.ts.map
