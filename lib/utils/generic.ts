@@ -29,3 +29,5 @@ export const boundedParseInt = (
 
 export const sleep = (ms: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, ms));
+
+export const isBun = () => typeof Bun !== 'undefined' && process.versions.bun;

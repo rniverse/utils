@@ -62,7 +62,7 @@ const currentReqId = cxt$req.getRequestId();
 ```
 non Elysia request should use runWithContext
 
-import { sleep } from 'bun';
+import { sleep } from '@rniverse/utils';
 import { cxt$req, log, runWithContext } from './utils';
 
 if (require.main === module) {
