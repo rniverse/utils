@@ -1,9 +1,9 @@
-import { randomUUIDv7 } from 'bun';
 import {
 	decodeTime,
 	ulid as generateULID,
 	monotonicFactory as ulidFactory,
 } from 'ulid';
+import { v7 } from 'uuid';
 
 const extractTimeFromUUIDv7 = (uuid: string) => {
 	// split the UUID into its components
@@ -18,7 +18,7 @@ const extractTimeFromUUIDv7 = (uuid: string) => {
 };
 
 export const uuid = {
-	generate: randomUUIDv7,
+	generate: v7,
 	extractTime: extractTimeFromUUIDv7,
 };
 
