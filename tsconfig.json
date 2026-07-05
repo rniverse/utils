@@ -33,6 +33,7 @@
 			"@type/*": ["./lib/type/*"],
 			"@context": ["lib/utils/context"],
 			"@context/*": ["lib/utils/context/*"]
-		}
+		},
+		"types": ["bun"]
 	}
 }
