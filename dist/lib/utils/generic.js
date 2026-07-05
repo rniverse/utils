@@ -10,4 +10,5 @@ export const boundedParseInt = (value, { min, max, fallback = 0, }) => {
         return max;
     return parsed;
 };
+export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 //# sourceMappingURL=generic.js.map

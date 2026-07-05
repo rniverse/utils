@@ -4,4 +4,5 @@ export declare const boundedParseInt: (value: unknown, { min, max, fallback, }: 
     max?: number;
     fallback?: number;
 }) => number;
+export declare const sleep: (ms: number) => Promise<void>;
 //# sourceMappingURL=generic.d.ts.map

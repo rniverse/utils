@@ -1,3 +1,3 @@
 import * as pkg from 'valibot';
-export const valibot = pkg;
+export const t = pkg;
 //# sourceMappingURL=valibot.js.map

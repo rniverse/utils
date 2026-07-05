@@ -1,7 +1,7 @@
-import { randomUUIDv7 } from 'bun';
 import { decodeTime, ulid as generateULID, monotonicFactory as ulidFactory } from 'ulid';
+import { v7 } from 'uuid';
 export declare const uuid: {
-    generate: typeof randomUUIDv7;
+    generate: typeof v7;
     extractTime: (uuid: string) => number;
 };
 export declare const ulid: {
