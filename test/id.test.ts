@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { sleep } from '../lib';
 import { ulid, uuid } from '../lib/utils/id';
 
 describe('ID utilities', () => {
@@ -148,14 +149,14 @@ describe('ID utilities', () => {
 			expect(timestamp2).toBeGreaterThanOrEqual(timestamp1);
 		});
 
-		test('ULIDs should be lexicographically sortable', () => {
+		test('ULIDs should be lexicographically sortable', async () => {
 			const ids: string[] = [];
 
 			// Generate IDs with small delays to ensure different timestamps
 			for (let i = 0; i < 5; i++) {
 				ids.push(ulid.generate());
 				// Small delay to ensure monotonic ordering
-				Bun.sleepSync(2);
+				await sleep(5);
 			}
 
 			// Copy and sort to compare
