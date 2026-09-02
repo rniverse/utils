@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import arraySupport from 'dayjs/plugin/arraySupport';
-import bigintSupport from 'dayjs/plugin/bigintSupport';
+import bigIntSupport from 'dayjs/plugin/bigIntSupport';
 import buddhistEra from 'dayjs/plugin/buddhistEra';
 import calendar from 'dayjs/plugin/calendar';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
@@ -67,7 +67,7 @@ dayjs.extend(toObject);
 dayjs.extend(minMax);
 dayjs.extend(objectSupport);
 dayjs.extend(arraySupport);
-dayjs.extend(bigintSupport);
+dayjs.extend(bigIntSupport);
 
 // Locale plugins
 dayjs.extend(localeData);
