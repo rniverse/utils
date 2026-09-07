@@ -1,3 +1,3 @@
-export * from './lodash.type';
-export * from './object.type';
+export * from './lodash.type.js';
+export * from './object.type.js';
 //# sourceMappingURL=index.js.map

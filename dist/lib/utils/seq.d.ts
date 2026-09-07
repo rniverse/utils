@@ -35,20 +35,25 @@ export interface SeqOptions {
 }
 /** Pad a string to the given length with leading zeros */
 export declare const getCode: (str: string, length?: number) => string;
+declare const createSeqGeneratorSync: () => () => bigint;
+declare const getSeqSync: (options?: SeqOptions) => () => string;
+declare const createSeqGenerator: () => () => Promise<bigint>;
+declare const getSeq: (options?: SeqOptions) => () => Promise<string>;
 /** Synchronous sequence generators — for startup-time code generation */
 export declare const sync$seq: {
     next: {
-        seq: () => () => bigint;
+        seq: typeof createSeqGeneratorSync;
         code: (prefix?: string) => () => string;
     };
-    get: (options?: SeqOptions) => () => string;
+    get: typeof getSeqSync;
 };
 /** Async sequence generators — for runtime ID generation with concurrency safety */
 export declare const async$seq: {
     next: {
-        seq: () => () => Promise<bigint>;
+        seq: typeof createSeqGenerator;
         code: (prefix?: string) => () => Promise<string>;
     };
-    get: (options?: SeqOptions) => () => Promise<string>;
+    get: typeof getSeq;
 };
+export {};
 //# sourceMappingURL=seq.d.ts.map

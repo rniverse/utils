@@ -1,6 +1,6 @@
 import { pino } from 'pino';
 import pretty from 'pino-pretty';
-import { cxt$req } from './context';
+import { cxt$req } from './context/index.js';
 // Create a pretty print stream that works synchronously
 const lf = (key, label) => `{if ${key}}${label ?? key}:{${key}} - {end}`;
 const mlf = (keys) => keys

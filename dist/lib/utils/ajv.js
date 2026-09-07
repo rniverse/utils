@@ -1,7 +1,7 @@
 import { Ajv } from 'ajv';
 import addFormats from 'ajv-formats';
 import addKeywords from 'ajv-keywords';
-import { log } from './logger';
+import { log } from './logger.js';
 const _ajv = addFormats(addKeywords(new Ajv({
     allErrors: true,
     logger: log,

@@ -1,4 +1,4 @@
-import type { TemplateConfig, TObject } from '@type';
+import type { TemplateConfig, TObject } from '../type/index.js';
 import * as eskit from 'es-toolkit';
 import * as lodash from 'es-toolkit/compat';
 export declare const cleanup: (obj: any, clear?: (value: any) => boolean) => any;
@@ -12,11 +12,9 @@ export declare const _: {
     set: typeof lodash.set;
     has: typeof lodash.has;
 } & typeof eskit & {
-    cleanup: (obj: any, clear?: (value: any) => boolean) => any;
-    pickOne: <T>(obj: T, keys: string[] | string, df?: T[keyof T]) => any;
-    templated: (template: {
-        [key: string]: TemplateConfig;
-    }, input: TObject) => TObject;
-    titleCase: (str: string) => string;
+    cleanup: typeof cleanup;
+    pickOne: typeof pickOne;
+    templated: typeof templated;
+    titleCase: typeof titleCase;
 };
 //# sourceMappingURL=lodash.d.ts.map

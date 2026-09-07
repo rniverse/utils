@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { uuid } from '../id';
+import { uuid } from '../id.js';
 export class RequestContext {
     cxt;
     constructor() {
