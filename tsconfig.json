@@ -25,14 +25,13 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false,
-		"baseUrl": ".",
 		"paths": {
-			"@utils": ["./lib/utils"],
+			"@utils": ["./lib/utils/index.ts"],
 			"@utils/*": ["./lib/utils/*"],
-			"@type": ["./lib/type"],
+			"@type": ["./lib/type/index.ts"],
 			"@type/*": ["./lib/type/*"],
-			"@context": ["lib/utils/context"],
-			"@context/*": ["lib/utils/context/*"]
+			"@context": ["./lib/utils/context/index.ts"],
+			"@context/*": ["./lib/utils/context/*"]
 		},
 		"types": ["bun"]
 	}
