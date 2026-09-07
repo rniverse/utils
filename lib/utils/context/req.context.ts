@@ -2,73 +2,89 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { uuid } from '../id';
 
 export type TRequestContext = {
-	requestId?: string;
+	requestId: string;
 	userId?: string;
-	[key: string]: any;
+	[key: string]: unknown;
 };
 
-export class RequestContext {
-	private cxt: AsyncLocalStorage<TRequestContext>;
+/**
+ * Per-request (or per-job) ambient state, built on `AsyncLocalStorage.run()`.
+ *
+ * A store only exists inside `run()` / `bindFetch()`. `enterWith` is deliberately
+ * not used — it has no scope exit and leaks across the async subtree. All
+ * mutation (`set` / `patch`) edits the existing store in place, so it stays
+ * consistent for any code holding a reference to it.
+ */
+export class RequestContext<S extends TRequestContext = TRequestContext> {
+	private als = new AsyncLocalStorage<S>();
 
-	constructor() {
-		this.cxt = new AsyncLocalStorage<TRequestContext>();
+	/** The core primitive: run `fn` inside a fresh store. */
+	run<T>(store: S, fn: () => T): T {
+		return this.als.run(store, fn);
 	}
 
-	// For Elysia .derive() — enterWith is correct here because
-	// Elysia has already established the async context for the request
-	withRequestId(custom?: Record<string, any>) {
-		return (_context?: any) => {
-			const requestId = custom?.requestId ?? uuid.generate();
-			const store = { requestId, ...(custom ?? {}) };
-			this.cxt.enterWith(store);
-			return { requestId };
+	/**
+	 * Wrap a fetch-style handler so every invocation runs inside its own store.
+	 * `seed` may derive extra fields from the handler's arguments (e.g. an
+	 * inbound `x-request-id`). This is the correct integration point for
+	 * frameworks whose middleware can't wrap the whole request.
+	 *
+	 *   Bun.serve({ fetch: cxt$req.bindFetch(app.fetch) })
+	 */
+	bindFetch<A extends unknown[], R>(
+		handler: (...args: A) => R,
+		seed?: (...args: A) => Partial<S> | undefined,
+	): (...args: A) => R {
+		return (...args: A): R => {
+			const store = {
+				requestId: uuid.generate(),
+				...(seed?.(...args) ?? {}),
+			} as S;
+			return this.als.run(store, () => handler(...args));
 		};
 	}
 
-	// For scripts/workers — run() gives proper isolation
-	run<T>(store: TRequestContext, fn: () => T): T {
-		return this.cxt.run(store, fn);
+	/** The current store, or `undefined` outside any context. */
+	store(): S | undefined {
+		return this.als.getStore();
 	}
 
-	// setUserId/setRequestContext are fine with enterWith
-	// as long as they're called inside an established context
-	setUserId(userId: string) {
-		const store = this.cxt.getStore();
-		if (store) {
-			this.cxt.enterWith({ ...store, userId });
-		}
+	get<K extends keyof S>(key: K): S[K] | undefined {
+		return this.als.getStore()?.[key];
 	}
 
-	setRequestContext(key: string, value: any) {
-		const store = this.cxt.getStore();
-		if (store) {
-			this.cxt.enterWith({ ...store, [key]: value });
-		}
+	/** Set one field on the current store, in place. No-op outside a context. */
+	set<K extends keyof S>(key: K, value: S[K]): void {
+		const store = this.als.getStore();
+		if (store) store[key] = value;
 	}
 
-	getRequestId(): string | null {
-		return this.cxt.getStore()?.requestId ?? null;
+	/** Merge fields into the current store, in place. No-op outside a context. */
+	patch(values: Partial<S>): void {
+		const store = this.als.getStore();
+		if (store) Object.assign(store, values);
 	}
 
-	getUserId(): string | null {
-		return this.cxt.getStore()?.userId ?? null;
+	requestId(): string | undefined {
+		return this.als.getStore()?.requestId;
 	}
 
-	getContextValue(key: string): any {
-		return this.cxt.getStore()?.[key] ?? null;
-	}
-
-	getContext(): AsyncLocalStorage<TRequestContext> {
-		return this.cxt;
+	userId(): string | undefined {
+		return this.als.getStore()?.userId;
 	}
 }
 
 export const cxt$req = new RequestContext();
 
+/** Run `fn` inside a fresh context — for scripts, workers, jobs. */
 export const runWithContext = <T>(
 	fn: () => T,
-	custom?: Record<string, any>,
-): T => {
-	const requestId = custom?.requestId ?? uuid.generate();
-	return cxt$req.run({ requestId, ...(custom ?? {}) }, fn as any);
-};
+	custom?: Partial<TRequestContext>,
+): T =>
+	cxt$req.run(
+		{
+			requestId: custom?.requestId ?? uuid.generate(),
+			...custom,
+		} as TRequestContext,
+		fn,
+	);

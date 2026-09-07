@@ -4,6 +4,78 @@
 	"module": "index.ts",
 	"type": "module",
 	"private": true,
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./env": {
+			"types": "./dist/lib/utils/env.d.ts",
+			"default": "./dist/lib/utils/env.js"
+		},
+		"./logger": {
+			"types": "./dist/lib/utils/logger.d.ts",
+			"default": "./dist/lib/utils/logger.js"
+		},
+		"./context": {
+			"types": "./dist/lib/utils/context/index.d.ts",
+			"default": "./dist/lib/utils/context/index.js"
+		},
+		"./datetime": {
+			"types": "./dist/lib/utils/datetime.d.ts",
+			"default": "./dist/lib/utils/datetime.js"
+		},
+		"./crypto": {
+			"types": "./dist/lib/utils/crypto.d.ts",
+			"default": "./dist/lib/utils/crypto.js"
+		},
+		"./retry": {
+			"types": "./dist/lib/utils/retry.d.ts",
+			"default": "./dist/lib/utils/retry.js"
+		},
+		"./request": {
+			"types": "./dist/lib/utils/request.d.ts",
+			"default": "./dist/lib/utils/request.js"
+		},
+		"./result": {
+			"types": "./dist/lib/utils/result.d.ts",
+			"default": "./dist/lib/utils/result.js"
+		},
+		"./sanitize": {
+			"types": "./dist/lib/utils/sanitize.d.ts",
+			"default": "./dist/lib/utils/sanitize.js"
+		},
+		"./duration": {
+			"types": "./dist/lib/utils/duration.d.ts",
+			"default": "./dist/lib/utils/duration.js"
+		},
+		"./id": {
+			"types": "./dist/lib/utils/id.d.ts",
+			"default": "./dist/lib/utils/id.js"
+		},
+		"./generic": {
+			"types": "./dist/lib/utils/generic.d.ts",
+			"default": "./dist/lib/utils/generic.js"
+		},
+		"./password": {
+			"types": "./dist/lib/utils/password.d.ts",
+			"default": "./dist/lib/utils/password.js"
+		},
+		"./fmt": {
+			"types": "./dist/lib/utils/fmt.d.ts",
+			"default": "./dist/lib/utils/fmt.js"
+		},
+		"./patch": {
+			"types": "./dist/lib/patch/index.d.ts",
+			"default": "./dist/lib/patch/index.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"scripts": {
 		"lint": "biome check --write",
 		"biome": "biome",
@@ -19,11 +91,13 @@
 		"pino-pretty": "^13.1.3",
 		"typescript": "^7.0.2"
 	},
+	"optionalDependencies": {
+		"argon2": "^0.45.1"
+	},
 	"dependencies": {
 		"ajv": "^8.20.0",
 		"ajv-formats": "^3.0.1",
 		"ajv-keywords": "^5.1.0",
-		"argon2": "^0.45.1",
 		"dayjs": "^1.11.23",
 		"es-toolkit": "^1.52.0",
 		"jose": "^6.2.10",
