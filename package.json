@@ -10,13 +10,14 @@
 		"dist"
 	],
 	"scripts": {
-		"build": "bun run tsc --project tsconfig.build.json",
+		"build": "bun run tsc --project tsconfig.build.json && bun run tsc-alias --project tsconfig.build.json",
 		"lint": "biome check --write",
 		"biome": "biome"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.12",
-		"@types/bun": "^1.4.0"
+		"@types/bun": "^1.4.0",
+		"tsc-alias": "^1.9.4"
 	},
 	"peerDependencies": {
 		"pino": "^10.3.1",
