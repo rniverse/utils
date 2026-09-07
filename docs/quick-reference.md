@@ -11,10 +11,9 @@ bun install github:rniverse/utils#dist
 ## Environment Variables
 
 ```bash
-JWT_SECRET=your-secret-key
-JWT_ACCESS_TOKEN_EXPIRES_IN=3600
-JWT_REFRESH_TOKEN_EXPIRES_IN=604800
-LOG_LEVEL=info
+NODE_ENV=production   # → newline-JSON logs (pretty otherwise)
+LOG_LEVEL=info        # trace|debug|info|warn|error|fatal|silent
+LOG_PRETTY=true       # force pretty even without a TTY
 ```
 
 ## ID Generation
@@ -46,11 +45,10 @@ date.duration(2, 'hours')
 ## JWT
 
 ```typescript
-import { jwt$ } from '@rniverse/utils';
+import { jose } from '@rniverse/utils'; // the `jose` library, re-exported
 
-await jwt$.sign({ userId: '123' })
-await jwt$.verify(token)
-jwt$.getSecretKey('secret')
+await new jose.SignJWT({ sub: '123' }).setProtectedHeader({ alg: 'RS256' }).sign(privateKey)
+await jose.jwtVerify(token, publicKey, { algorithms: ['RS256'] })
 ```
 
 ## Logger
@@ -66,14 +64,40 @@ log.child({ module: 'name' })
 ## Request Context
 
 ```typescript
-import { cxt$req } from '@rniverse/utils';
+import { cxt$req, runWithContext } from '@rniverse/utils';
 
-cxt$req.withRequestId({ userId: '123' })(() => {
+// scripts / jobs
+runWithContext(() => {
   // code with context
-})
-cxt$req.getRequestId()
-cxt$req.getUserId()
-cxt$req.setUserId('123')
+}, { userId: '123' })
+
+// HTTP servers: wrap the fetch handler
+Bun.serve({ fetch: cxt$req.bindFetch(app.handle) })
+
+cxt$req.requestId()
+cxt$req.userId()
+cxt$req.get('tenant')
+cxt$req.set('userId', '123')   // mutates the current store in place
+cxt$req.patch({ userId: '123', tenant: 'acme' })
+```
+
+## HTTP Client (context-propagating)
+
+```typescript
+import { http, trace$ } from '@rniverse/utils';
+
+// receiving side: adopt inbound x-request-id (x-user-id is NOT trusted)
+Bun.serve({ fetch: cxt$req.bindFetch(app.handle, trace$.seed) })
+
+// calling another internal service — x-request-id / x-user-id added automatically
+const b = http({ baseURL: 'http://service-b', timeout: 5000 });
+const data = await b.post('/things', { body: { name: 'x' } }); // throws HttpError on !2xx
+await b.get('/things', { query: { page: 2 } });                  // GETs retry 5xx by default
+await b.post('/things', { body, retries: 3 });                   // opt a POST into retry
+const res = await b.send('GET', '/stream');                      // raw Response, no parse/throw
+
+// external / third-party — do NOT leak context headers
+const google = http({ baseURL: 'https://oauth2.googleapis.com', propagate: false });
 ```
 
 ## Lodash Extensions
@@ -90,7 +114,7 @@ _.titleCase('hello_world')
 ## String Extensions
 
 ```typescript
-import '@rniverse/utils/lib/patch';
+import '@rniverse/utils/patch';
 
 'Hello {name}'.fmt({ name: 'World' })
 '{0} + {1}'.fmt(1, 2)

@@ -1,6 +1,6 @@
 # @rniverse/utils
 
-A comprehensive utility library for TypeScript/Bun applications, providing common functionality for logging, datetime handling, ID generation, JWT operations, and more.
+A comprehensive utility library for TypeScript/Bun applications, providing common functionality for logging, datetime handling, ID generation, an HTTP client, and more.
 
 ## Table of Contents
 
@@ -10,7 +10,7 @@ A comprehensive utility library for TypeScript/Bun applications, providing commo
   - [Lodash Extensions](#lodash-extensions)
   - [ID Generation](#id-generation)
   - [DateTime](#datetime)
-  - [JWT Operations](#jwt-operations)
+  - [JWT](#jwt)
   - [Logger](#logger)
   - [Request Context](#request-context)
   - [String Extensions](#string-extensions)
@@ -29,38 +29,16 @@ The following environment variables can be configured:
 
 | Variable | Description | Default |
 |----------|-------------|----------|
-| `JWT_SECRET` | Secret key for JWT signing/verification | `'your-secret-key-change-in-production'` |
-| `JWT_ACCESS_TOKEN_EXPIRES_IN` | Access token expiry in seconds | `'3600'` (1 hour) |
-| `JWT_REFRESH_TOKEN_EXPIRES_IN` | Refresh token expiry in seconds | `'604800'` (7 days) |
-| `LOG_LEVEL` | Logging level (trace, debug, info, warn, error, fatal) | `'info'` |
-
-### Setting Environment Variables
-
-**.env file:**
-```bash
-JWT_SECRET=your-production-secret-key-here
-JWT_ACCESS_TOKEN_EXPIRES_IN=7200
-JWT_REFRESH_TOKEN_EXPIRES_IN=1209600
-LOG_LEVEL=debug
-```
-
-**Example with different environments:**
-```bash
-# Development
-LOG_LEVEL=debug
-JWT_SECRET=dev-secret-key
-
-# Production
-LOG_LEVEL=info
-JWT_SECRET=prod-secure-random-key-256-bits
-JWT_ACCESS_TOKEN_EXPIRES_IN=1800
-```
+| `NODE_ENV` | `production` → newline-JSON logs instead of pretty | — |
+| `LOG_LEVEL` | `trace` \| `debug` \| `info` \| `warn` \| `error` \| `fatal` \| `silent` | `'info'` |
+| `LOG_PRETTY` | `true` forces pretty logs even without a TTY | — |
+| `INSTANCE_NAME` | App/instance name for `environment` consumers (e.g. connectors) | — |
 
 ## Quick Start
 
 ```typescript
-import { log, uuid, ulid, date, jwt$, _, cxt$req } from '@rniverse/utils';
-import '@rniverse/utils/lib/patch'; // For string extensions
+import { log, uuid, ulid, date, _, cxt$req, runWithContext } from '@rniverse/utils';
+import '@rniverse/utils/patch'; // opt-in: String.prototype.fmt
 
 // Generate IDs
 const id = uuid.generate();
@@ -72,14 +50,10 @@ const now = date().format('YYYY-MM-DD HH:mm:ss');
 // Use lodash with custom extensions
 const cleaned = _.cleanup({ a: 1, b: null, c: undefined }); // { a: 1 }
 
-// JWT operations
-const token = await jwt$.sign({ userId: '123' });
-const verified = await jwt$.verify(token);
-
 // Logging with request context
-cxt$req.withRequestId(() => {
+runWithContext(() => {
   log.info('Request started');
-})();
+});
 ```
 
 ---
@@ -213,120 +187,46 @@ date().add(1, 'day').calendar(); // "Tomorrow at 10:30 AM"
 
 ---
 
-### JWT Operations
+### JWT
 
-JWT token signing and verification using Jose library.
-
-#### Import
-
-```typescript
-import { jwt$ } from '@rniverse/utils';
-```
-
-#### Configuration
-
-Configure via environment variables (see [Environment Variables](#environment-variables) section):
-
-```bash
-JWT_SECRET=your-256-bit-secret-key
-JWT_ACCESS_TOKEN_EXPIRES_IN=3600    # 1 hour
-JWT_REFRESH_TOKEN_EXPIRES_IN=604800 # 7 days
-```
-
-#### Sign Tokens
+Only the `jose` library itself is re-exported — no wrapper helpers, no shared
+secret. Bring your own algorithm and keys.
 
 ```typescript
-// Basic usage
-const token = await jwt$.sign({ userId: '123', email: 'user@example.com' });
+import { jose } from '@rniverse/utils';
 
-// With options
-const token = await jwt$.sign(
-  { userId: '123', role: 'admin' },
-  {
-    expiresIn: 7200, // 2 hours in seconds
-    issuer: 'my-app',
-    audience: 'my-users',
-  }
-);
+// RS256 + JWKS (what `aham` does)
+const privateKey = await jose.importPKCS8(pem, 'RS256');
+const token = await new jose.SignJWT({ sub: userId })
+  .setProtectedHeader({ alg: 'RS256', kid })
+  .setIssuedAt()
+  .setExpirationTime('15m')
+  .sign(privateKey);
 
-// Custom secret
-const customSecret = jwt$.getSecretKey('my-secret');
-const token = await jwt$.sign(
-  { userId: '123' },
-  { secret: customSecret }
-);
-```
-
-**Sign Options:**
-```typescript
-type JWTSignOptions = {
-  expiresIn?: number | string; // in seconds
-  alg?: string;               // default: 'HS256'
-  issuer?: string;            // default: 'rnivguard'
-  audience?: string;          // default: 'rnivguard-users'
-  secret?: Uint8Array;
-};
-```
-
-#### Verify Tokens
-
-```typescript
-// Basic verification
-const result = await jwt$.verify(token);
-
-if (result.valid) {
-  console.log(result.payload);  // Token payload
-  console.log(result.userId);   // Extracted from 'sub' claim
-  console.log(result.orgId);    // Extracted from 'org' claim
-} else {
-  console.error(result.error);  // Error message
-}
-
-// With custom options
-const result = await jwt$.verify(token, {
-  issuer: 'my-app',
-  audience: 'my-users',
-  secret: customSecret,
-});
-```
-
-**Verify Response:**
-```typescript
-// Success
-{
-  valid: true,
-  payload: object,
-  userId: string,
-  orgId: string,
-}
-
-// Failure
-{
-  valid: false,
-  error: string,
-}
-```
-
-#### Get Secret Key
-
-```typescript
-// Default secret
-const secret = jwt$.getSecretKey();
-
-// Custom secret
-const customSecret = jwt$.getSecretKey('my-custom-secret');
+const publicKey = await jose.importSPKI(pem, 'RS256');
+const { payload } = await jose.jwtVerify(token, publicKey, { algorithms: ['RS256'] });
 ```
 
 ---
 
 ### Logger
 
-Pino-based logger with request context integration and pretty printing.
+Pino-based logger with request-context integration.
+
+- **Pretty + synchronous** output only for local dev / tests — when
+  `NODE_ENV=test`, `LOG_PRETTY=true`, or stdout is a TTY.
+- **Newline-delimited JSON** everywhere else (production).
+- **Redaction** — `password`, `hash`, `token`, `secret`, `authorization`,
+  `*.accessToken`, `*.refreshToken`, `headers.cookie` (one level deep) are
+  replaced with `***`, so logging a whole request / user / config object is safe.
+- `reqId` / `userId` are pulled from the current request context on every line.
+- Extra `log` level at 25 (`log.log(...)`), between `debug` and `info`.
 
 #### Import
 
 ```typescript
 import { log } from '@rniverse/utils';
+// or the subpath: import { log } from '@rniverse/utils/logger';
 ```
 
 #### Configuration
@@ -367,15 +267,15 @@ The logger automatically includes `req_id` and `user_id` from request context:
 import { log, cxt$req } from '@rniverse/utils';
 
 // Start request with context
-cxt$req.withRequestId({ userId: 'user-123' })(() => {
+runWithContext(() => {
   log.info('Request started');
-  // Output: [req_id:018d...] [user_id:user-123] Request started
-  
+  // Output: reqId:018d... - userId:user-123 - Request started
+
   performOperation();
-  
+
   log.info('Request completed');
-  // Same req_id throughout the request
-});
+  // Same reqId throughout
+}, { userId: 'user-123' });
 
 function performOperation() {
   // Logger automatically includes context
@@ -401,164 +301,81 @@ yyyy-mm-dd HH:MM:ss [req_id:...] [user_id:...] message
 
 ### Request Context
 
-Async local storage for request-scoped data.
+Request- / job-scoped ambient state, built on `AsyncLocalStorage.run()`. A store
+only exists inside `run()` / `bindFetch()` / `runWithContext()`. `enterWith` is
+not used — mutation edits the current store in place.
 
 #### Import
 
 ```typescript
-import { cxt$req } from '@rniverse/utils';
+import { cxt$req, runWithContext } from '@rniverse/utils';
+// or the subpath: import { cxt$req } from '@rniverse/utils/context';
 ```
 
-#### Generate Request ID
+#### Scripts, workers, jobs
 
 ```typescript
-// Generate and set request ID with custom data
-cxt$req.withRequestId({ 
-  userId: 'user-123', 
-  tenant: 'acme-corp' 
-})(() => {
-  // All code here has access to the context
-  const requestId = cxt$req.getRequestId(); // Generated UUID v7
-  const userId = cxt$req.getUserId();       // 'user-123'
-  
-  log.info('Request processing');
+runWithContext(() => {
+  const requestId = cxt$req.requestId(); // generated UUID v7
+  log.info('processing');                // log lines carry reqId / userId
+}, { userId: 'user-123', tenant: 'acme' });
+```
+
+#### HTTP servers
+
+Wrap the fetch handler once — every request then runs in its own store:
+
+```typescript
+Bun.serve({
+  port,
+  fetch: cxt$req.bindFetch((req) => app.handle(req)),
 });
+
+// anywhere downstream (middleware, handlers, services, onError):
+cxt$req.set('userId', user.id);   // in-place, no new store
+cxt$req.patch({ tenant });
 ```
 
-#### Get Context Values
+`bindFetch(handler, seed?)` — `seed(...args)` may derive initial store fields
+from the handler's arguments (e.g. an inbound `x-request-id`).
+
+#### Read / write
 
 ```typescript
-// Get request ID (returns null if not set)
-const requestId = cxt$req.getRequestId();
-
-// Get user ID
-const userId = cxt$req.getUserId();
-
-// Get any context value
-const tenant = cxt$req.getContextValue('tenant');
+cxt$req.store()          // the whole store, or undefined outside a context
+cxt$req.requestId()      // string | undefined
+cxt$req.userId()         // string | undefined
+cxt$req.get('tenant')    // any keyed value
+cxt$req.set('userId', 'user-456')       // mutate one field in place
+cxt$req.patch({ sessionId: 'session-789' })
 ```
 
-#### Set Context Values
-
-```typescript
-// Set user ID
-cxt$req.setUserId('user-456');
-
-// Set any context value
-cxt$req.setRequestContext('sessionId', 'session-789');
-```
-
-#### Get Raw Context
-
-```typescript
-const context = cxt$req.getContext();
-// Returns: AsyncLocalStorage<TRequestContext>
-```
-
-#### Context Type
+#### Context type
 
 ```typescript
 type TRequestContext = {
-  requestId?: string;
+  requestId: string;
   userId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 ```
 
-#### Example: Express Middleware
+#### Isolation
+
+Each `run()` / `bindFetch()` call is fully isolated — concurrent requests never
+see each other's `requestId` / `userId`, and the store survives every `await`
+inside the callback.
 
 ```typescript
-import { cxt$req, log } from '@rniverse/utils';
-
-app.use((req, res, next) => {
-  cxt$req.withRequestId({ 
-    userId: req.user?.id,
-    ipAddress: req.ip,
-  })(() => {
-    next();
-  })();
-});
-
-// In any route handler or service
-app.get('/users', (req, res) => {
-  // Context is automatically available
-  log.info('Fetching users');
-  // Output includes req_id and user_id automatically
-});
-```
-
-#### Example: Async Operations with Context
-
-```typescript
-import { cxt$req, log } from '@rniverse/utils';
-
-async function processRequest(userId: string) {
-  // Create context for the entire async operation
-  const handler = cxt$req.withRequestId({ userId });
-  
-  await handler(async () => {
-    log.info('Starting request processing');
-    
-    // All async operations maintain the same context
-    await fetchUserData();
-    await processPayment();
-    await sendNotification();
-    
-    log.info('Request completed');
-    // All logs above will have the same req_id and user_id
-  });
-}
-
-async function fetchUserData() {
-  // No need to pass context - it's automatic
-  log.info('Fetching user data');
-  await db.query('SELECT * FROM users WHERE id = ?', [cxt$req.getUserId()]);
-}
-```
-
-#### Example: Parallel Requests with Isolated Context
-
-```typescript
-import { cxt$req, log } from '@rniverse/utils';
-
-// Each request gets its own isolated context
-const promises = ['user1', 'user2', 'user3'].map(userId => {
-  return cxt$req.withRequestId({ userId })(async () => {
-    log.info('Processing user');
-    await processUser(userId);
-    log.info('User processed');
-    // Each user's logs will have different req_id
-  });
-});
-
-await Promise.all(promises);
-```
-
-#### Example: Nested Service Calls
-
-```typescript
-import { cxt$req, log } from '@rniverse/utils';
-
-class UserService {
-  async createUser(data: any) {
-    log.info('Creating user');
-    const user = await db.insert('users', data);
-    
-    // Context is preserved across service boundaries
-    await this.emailService.sendWelcomeEmail(user.email);
-    await this.analyticsService.track('user_created', user.id);
-    
-    return user;
-  }
-}
-
-class EmailService {
-  async sendWelcomeEmail(email: string) {
-    // Automatically has the same req_id as parent call
-    log.info({ email }, 'Sending welcome email');
-    await sendEmail(email, 'welcome');
-  }
-}
+await Promise.all(
+  ['user1', 'user2', 'user3'].map((userId) =>
+    cxt$req.run({ requestId: crypto.randomUUID(), userId }, async () => {
+      log.info('processing user');
+      await processUser(userId);
+      log.info('user processed'); // same reqId as the line above
+    }),
+  ),
+);
 ```
 
 ---
@@ -570,7 +387,7 @@ Custom string prototype extensions for formatting.
 #### Import
 
 ```typescript
-import '@rniverse/utils/lib/patch';
+import '@rniverse/utils/patch';
 ```
 
 #### String.prototype.fmt
@@ -765,17 +582,18 @@ import { cxt$req } from '@context/req.context';
 
 ### Request Context
 
-Always wrap request handlers with `withRequestId()`:
+Serve through `cxt$req.bindFetch` so every request gets an isolated store; use
+`runWithContext` for scripts and jobs:
 
 ```typescript
-// ✅ Good
-cxt$req.withRequestId({ userId: req.user?.id })(() => {
-  // All logs will include req_id automatically
-  processRequest();
-});
+// ✅ HTTP
+Bun.serve({ fetch: cxt$req.bindFetch((req) => app.handle(req)) });
+
+// ✅ script / job
+runWithContext(() => processJob(), { userId });
 
 // ❌ Bad
-processRequest(); // No request context, logs missing req_id
+processJob(); // no context, logs missing reqId
 ```
 
 ### Logger Usage
