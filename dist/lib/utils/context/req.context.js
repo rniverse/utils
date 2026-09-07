@@ -1,54 +1,66 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { uuid } from '../id.js';
+/**
+ * Per-request (or per-job) ambient state, built on `AsyncLocalStorage.run()`.
+ *
+ * A store only exists inside `run()` / `bindFetch()`. `enterWith` is deliberately
+ * not used — it has no scope exit and leaks across the async subtree. All
+ * mutation (`set` / `patch`) edits the existing store in place, so it stays
+ * consistent for any code holding a reference to it.
+ */
 export class RequestContext {
-    cxt;
-    constructor() {
-        this.cxt = new AsyncLocalStorage();
+    als = new AsyncLocalStorage();
+    /** The core primitive: run `fn` inside a fresh store. */
+    run(store, fn) {
+        return this.als.run(store, fn);
     }
-    // For Elysia .derive() — enterWith is correct here because
-    // Elysia has already established the async context for the request
-    withRequestId(custom) {
-        return (_context) => {
-            const requestId = custom?.requestId ?? uuid.generate();
-            const store = { requestId, ...(custom ?? {}) };
-            this.cxt.enterWith(store);
-            return { requestId };
+    /**
+     * Wrap a fetch-style handler so every invocation runs inside its own store.
+     * `seed` may derive extra fields from the handler's arguments (e.g. an
+     * inbound `x-request-id`). This is the correct integration point for
+     * frameworks whose middleware can't wrap the whole request.
+     *
+     *   Bun.serve({ fetch: cxt$req.bindFetch(app.fetch) })
+     */
+    bindFetch(handler, seed) {
+        return (...args) => {
+            const store = {
+                requestId: uuid.generate(),
+                ...(seed?.(...args) ?? {}),
+            };
+            return this.als.run(store, () => handler(...args));
         };
     }
-    // For scripts/workers — run() gives proper isolation
-    run(store, fn) {
-        return this.cxt.run(store, fn);
+    /** The current store, or `undefined` outside any context. */
+    store() {
+        return this.als.getStore();
     }
-    // setUserId/setRequestContext are fine with enterWith
-    // as long as they're called inside an established context
-    setUserId(userId) {
-        const store = this.cxt.getStore();
-        if (store) {
-            this.cxt.enterWith({ ...store, userId });
-        }
+    get(key) {
+        return this.als.getStore()?.[key];
     }
-    setRequestContext(key, value) {
-        const store = this.cxt.getStore();
-        if (store) {
-            this.cxt.enterWith({ ...store, [key]: value });
-        }
+    /** Set one field on the current store, in place. No-op outside a context. */
+    set(key, value) {
+        const store = this.als.getStore();
+        if (store)
+            store[key] = value;
     }
-    getRequestId() {
-        return this.cxt.getStore()?.requestId ?? null;
+    /** Merge fields into the current store, in place. No-op outside a context. */
+    patch(values) {
+        const store = this.als.getStore();
+        if (store)
+            Object.assign(store, values);
     }
-    getUserId() {
-        return this.cxt.getStore()?.userId ?? null;
+    requestId() {
+        return this.als.getStore()?.requestId;
     }
-    getContextValue(key) {
-        return this.cxt.getStore()?.[key] ?? null;
-    }
-    getContext() {
-        return this.cxt;
+    userId() {
+        return this.als.getStore()?.userId;
     }
 }
 export const cxt$req = new RequestContext();
-export const runWithContext = (fn, custom) => {
-    const requestId = custom?.requestId ?? uuid.generate();
-    return cxt$req.run({ requestId, ...(custom ?? {}) }, fn);
-};
+/** Run `fn` inside a fresh context — for scripts, workers, jobs. */
+export const runWithContext = (fn, custom) => cxt$req.run({
+    requestId: custom?.requestId ?? uuid.generate(),
+    ...custom,
+}, fn);
 //# sourceMappingURL=req.context.js.map

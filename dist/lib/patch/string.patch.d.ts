@@ -1,4 +1,5 @@
-export declare const fmt: (template: string, ...args: any[]) => string;
+import { fmt } from '../utils/fmt.js';
+export { fmt };
 declare global {
     interface String {
         fmt(...args: any[]): string;
