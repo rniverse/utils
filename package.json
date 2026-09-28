@@ -33,9 +33,13 @@
 			"types": "./dist/lib/utils/crypto.d.ts",
 			"default": "./dist/lib/utils/crypto.js"
 		},
-		"./retry": {
-			"types": "./dist/lib/utils/retry.d.ts",
-			"default": "./dist/lib/utils/retry.js"
+		"./resilience": {
+			"types": "./dist/lib/utils/resilience/index.d.ts",
+			"default": "./dist/lib/utils/resilience/index.js"
+		},
+		"./lazy": {
+			"types": "./dist/lib/utils/lazy.d.ts",
+			"default": "./dist/lib/utils/lazy.js"
 		},
 		"./request": {
 			"types": "./dist/lib/utils/request.d.ts",
