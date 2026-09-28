@@ -215,6 +215,9 @@ retry<T>(work: ({ attempt, signal }) => Promise<T>, {
 // Fail fast once a dependency keeps failing; one trial call after cooldown.
 new CircuitBreaker({ threshold?: 5, cooldown?: 30_000, trips?: (result) => boolean, on?: { open, trial, close } })
 breaker.run(work, { signal? })        // throws CircuitOpenError (remaining ms) while open
+breaker.trial(work, { signal? })      // run the trial now, skipping the rest of the cooldown
+breaker.open({ ms? })                 // trip by hand (default ms: cooldown); reset() forces closed
+breaker.failures / breaker.remaining  // read-only: consecutive failures, ms until a call is allowed
 breaker.state                         // 'closed' | 'open' | 'half-open'
 
 // total timeout › retry › breaker › attempt timeout › work. CircuitOpenError is never retried.

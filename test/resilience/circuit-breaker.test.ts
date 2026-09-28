@@ -260,6 +260,176 @@ describe('CircuitBreaker', () => {
 		expect(process.getActiveResourcesInfo().length).toBe(before);
 	});
 
+	describe('trial() — run the trial early', () => {
+		test('while open, runs now instead of waiting out the cooldown; success closes', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 60_000 });
+			await trip(breaker, 1);
+			expect(breaker.state).toBe('open');
+			expect(await breaker.trial(pass)).toBe('up');
+			expect(breaker.state).toBe('closed');
+		});
+
+		test('a failed trial reopens with a fresh cooldown and rethrows unchanged', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 60_000 });
+			await trip(breaker, 1);
+			const error = new Error('still down');
+			const caught = await breaker
+				.trial(async () => {
+					throw error;
+				})
+				.catch((e) => e);
+			expect(caught).toBe(error);
+			expect(breaker.state).toBe('open');
+			const refused = await breaker.run(pass).catch((e) => e);
+			expect(refused.remaining).toBeGreaterThan(59_000);
+		});
+
+		test('only one trial at a time — a concurrent trial() or run() is refused', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 60_000 });
+			await trip(breaker, 1);
+			let calls = 0;
+			const slow = async () => {
+				calls++;
+				await sleep(30);
+				return 'ok';
+			};
+			const results = await Promise.allSettled([
+				breaker.trial(slow),
+				breaker.trial(slow),
+				breaker.run(slow),
+			]);
+			expect(calls).toBe(1);
+			const refused = results.filter((r) => r.status === 'rejected');
+			expect(refused).toHaveLength(2);
+			for (const r of refused) {
+				expect((r as PromiseRejectedResult).reason).toBeInstanceOf(
+					CircuitOpenError,
+				);
+			}
+		});
+
+		test('while closed it is a normal call — and still counted', async () => {
+			const breaker = new CircuitBreaker({ threshold: 2, cooldown: 60_000 });
+			expect(await breaker.trial(pass)).toBe('up');
+			await breaker.trial(fail).catch(() => {});
+			await breaker.trial(fail).catch(() => {});
+			expect(breaker.state).toBe('open');
+		});
+
+		test('fires on.trial like the automatic trial', async () => {
+			const events: string[] = [];
+			const breaker = new CircuitBreaker({
+				threshold: 1,
+				cooldown: 60_000,
+				on: {
+					trial: () => events.push('trial'),
+					close: () => events.push('close'),
+				},
+			});
+			await trip(breaker, 1);
+			await breaker.trial(pass);
+			expect(events).toEqual(['trial', 'close']);
+		});
+
+		test('a caller abort releases the slot without deciding anything', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 60_000 });
+			await trip(breaker, 1);
+			const controller = new AbortController();
+			const pending = breaker.trial(
+				() => sleep(5_000, { signal: controller.signal }),
+				{
+					signal: controller.signal,
+				},
+			);
+			controller.abort(new Error('caller'));
+			await pending.catch(() => {});
+			expect(breaker.state).toBe('open');
+			expect(await breaker.trial(pass)).toBe('up'); // slot was freed
+		});
+	});
+
+	describe('open() — trip by hand', () => {
+		test('refuses calls for the default cooldown, then allows a trial', async () => {
+			const breaker = new CircuitBreaker({ threshold: 5, cooldown: 20 });
+			breaker.open();
+			expect(breaker.state).toBe('open');
+			expect(await breaker.run(pass).catch((e) => e)).toBeInstanceOf(
+				CircuitOpenError,
+			);
+			await sleep(30);
+			expect(await breaker.run(pass)).toBe('up'); // trial closes it
+			expect(breaker.state).toBe('closed');
+		});
+
+		test('{ ms } overrides the cooldown for this opening only', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 20 });
+			breaker.open({ ms: 60_000 });
+			await sleep(30);
+			expect(breaker.state).toBe('open'); // not half-open after 20ms
+			expect(breaker.remaining).toBeGreaterThan(59_000);
+		});
+
+		test('fires on.open with the ms used', () => {
+			const events: Array<{ failures: number; cooldown: number }> = [];
+			const breaker = new CircuitBreaker({
+				on: { open: (event) => events.push(event) },
+			});
+			breaker.open({ ms: 1_234 });
+			expect(events).toEqual([{ failures: 0, cooldown: 1_234 }]);
+		});
+
+		test('abandons a trial in flight — its late outcome is ignored', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 60_000 });
+			await trip(breaker, 1);
+			let finish: (value: string) => void = () => {};
+			const inflight = breaker.trial(
+				() =>
+					new Promise<string>((resolve) => {
+						finish = resolve;
+					}),
+			);
+			breaker.open({ ms: 60_000 });
+			finish('late success');
+			await inflight;
+			expect(breaker.state).toBe('open');
+		});
+
+		test('negative ms throws RangeError', () => {
+			expect(() => new CircuitBreaker().open({ ms: -1 })).toThrow(RangeError);
+		});
+	});
+
+	describe('failures / remaining', () => {
+		test('failures counts consecutive counted failures, reset by a success', async () => {
+			const breaker = new CircuitBreaker({ threshold: 5 });
+			await trip(breaker, 2);
+			expect(breaker.failures).toBe(2);
+			await breaker.run(pass);
+			expect(breaker.failures).toBe(0);
+		});
+
+		test('remaining is 0 while closed', () => {
+			expect(new CircuitBreaker().remaining).toBe(0);
+		});
+
+		test('remaining counts down the cooldown while open, 0 once a trial may start', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 40 });
+			await trip(breaker, 1);
+			const first = breaker.remaining;
+			expect(first).toBeGreaterThan(0);
+			expect(first).toBeLessThanOrEqual(40);
+			await sleep(50);
+			expect(breaker.remaining).toBe(0);
+		});
+
+		test('remaining matches the CircuitOpenError a refused call gets', async () => {
+			const breaker = new CircuitBreaker({ threshold: 1, cooldown: 60_000 });
+			await trip(breaker, 1);
+			const error = await breaker.run(pass).catch((e) => e);
+			expect(Math.abs(error.remaining - breaker.remaining)).toBeLessThan(20);
+		});
+	});
+
 	test('invalid options throw RangeError', () => {
 		expect(() => new CircuitBreaker({ cooldown: -1 })).toThrow(RangeError);
 		expect(() => new CircuitBreaker({ threshold: 0 })).toThrow(RangeError);

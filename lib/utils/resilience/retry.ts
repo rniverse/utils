@@ -43,14 +43,14 @@ export async function retry<T>(
 
 	for (let attempt = 1; ; attempt++) {
 		signal?.throwIfAborted();
-		const result = await __attempt(work, attempt, signal);
+		const result = await __attempt(work, { attempt, signal });
 		if (signal?.aborted) throw signal.reason;
 		if (attempt >= attempts) return settle(result);
 
 		const context: RetryContext = {
 			attempt,
 			attempts,
-			delay: __delay(backoff, attempt),
+			delay: __delay(backoff, { attempt }),
 			elapsed: Date.now() - startedAt,
 		};
 		if (!(await retryable(result, context))) return settle(result);
@@ -62,9 +62,9 @@ export async function retry<T>(
 /** One call to `work` with its own signal, linked to the caller's. */
 async function __attempt<T>(
 	work: (context: Attempt) => Promise<T>,
-	attempt: number,
-	signal: AbortSignal | undefined,
+	options: { attempt: number; signal: AbortSignal | undefined },
 ): Promise<Outcome<T>> {
+	const { attempt, signal } = options;
 	const controller = new AbortController();
 	const onAbort = () => controller.abort(signal?.reason);
 	signal?.addEventListener('abort', onAbort, { once: true });
@@ -81,7 +81,11 @@ async function __attempt<T>(
 }
 
 /** Wait after attempt `n` fails, clamped to `[min, max]`. */
-function __delay({ strategy, min, max }: Backoff, attempt: number): number {
+function __delay(
+	{ strategy, min, max }: Backoff,
+	options: { attempt: number },
+): number {
+	const { attempt } = options;
 	if (strategy === 'fixed') return min;
 	// Exponent capped so a huge attempt number can't overflow to Infinity/NaN.
 	const exponential = Math.min(max, min * 2 ** Math.min(attempt - 1, 52));

@@ -46,6 +46,15 @@ export type BreakerState = 'closed' | 'open' | 'half-open';
 /** The half-open trial in flight: when it started, and the token that owns the slot. Internal to `CircuitBreaker`. */
 export type BreakerTrial = { startedAt: number; token: symbol };
 
+/** Options for `CircuitBreaker.run` / `trial`. */
+export type BreakerRunOptions = { signal?: AbortSignal };
+
+/** Options for `CircuitBreaker.open`. */
+export type BreakerOpenOptions = {
+	/** ms to stay open. Default: the breaker's `cooldown`. */
+	ms?: number;
+};
+
 export type BreakerOptions = {
 	/** Consecutive counted failures that open the circuit. Default 5. */
 	threshold?: number;
