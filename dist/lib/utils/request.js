@@ -4,7 +4,7 @@
 // carries the current request context (requestId / userId) as headers, so a
 // chain A -> B -> C shares one requestId. An explicit header always wins.
 import { cxt$req } from './context/index.js';
-import { retry } from './retry.js';
+import { retry, timeout } from './resilience/index.js';
 // ── Trace propagation ─────────────────────────────────────────────────
 const REQUEST_ID = 'x-request-id';
 const USER_ID = 'x-user-id';
@@ -84,13 +84,6 @@ function __encode(value) {
         return { body: value };
     return { body: JSON.stringify(value), type: 'application/json' };
 }
-/** The caller's abort signal (if any) combined with a timeout deadline. */
-function __abort(timeout, caller) {
-    if (!timeout || timeout <= 0)
-        return caller;
-    const deadline = AbortSignal.timeout(timeout);
-    return caller ? AbortSignal.any([caller, deadline]) : deadline;
-}
 /** JSON when the response looks like JSON, otherwise text; empty -> undefined. */
 async function __parse(response) {
     if (response.status === 204 || response.status === 205)
@@ -101,15 +94,14 @@ async function __parse(response) {
         return undefined;
     return type.includes('json') ? JSON.parse(text) : text;
 }
-function __transient(outcome) {
-    if (!outcome.ok)
-        return true; // network error or abort
-    return outcome.value.status >= 500;
+/** Retry on a network error / timeout, or a 5xx response. */
+function __transient(result) {
+    if (!result.ok)
+        return true;
+    return result.data.status >= 500;
 }
-/** Exponential backoff before retry N: 200ms, 400ms, 800ms, … capped at 2s. */
-function __backoff(attempt) {
-    return Math.min(200 * 2 ** (attempt - 1), 2000);
-}
+/** Waits between retries: 200ms, 400ms, 800ms, … capped at 2s. */
+const BACKOFF = { strategy: 'exponential', min: 200, max: 2_000 };
 export function http(config = {}) {
     const propagate = config.propagate ?? true;
     /** One request, with retry. Returns the raw Response, even for a 4xx/5xx. */
@@ -128,19 +120,21 @@ export function http(config = {}) {
         if (encoded.type && !headers['content-type']) {
             headers['content-type'] = encoded.type;
         }
-        const attempt = () => (config.fetch ?? fetch)(url, {
+        const call = (signal) => (config.fetch ?? fetch)(url, {
             method,
             headers,
             body: encoded.body,
-            signal: __abort(options.timeout ?? config.timeout, options.signal),
+            signal,
         });
+        const limit = options.timeout ?? config.timeout ?? 0;
         const retries = options.retries ?? (IDEMPOTENT.has(method) ? (config.retries ?? 2) : 0);
-        if (retries <= 0)
-            return attempt();
-        return retry(attempt, {
-            attempts: retries + 1,
-            delay: __backoff,
-            retryIf: __transient,
+        // Each attempt gets its own timeout; a caller abort stops everything and
+        // is never retried.
+        return retry(({ signal }) => timeout(call, limit, { signal }), {
+            attempts: Math.max(0, retries) + 1,
+            backoff: BACKOFF,
+            retryable: __transient,
+            signal: options.signal,
         });
     }
     /** A request whose body is parsed; throws `HttpError` on a non-2xx. */
