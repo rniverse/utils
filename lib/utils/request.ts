@@ -4,14 +4,41 @@
 // carries the current request context (requestId / userId) as headers, so a
 // chain A -> B -> C shares one requestId. An explicit header always wins.
 
+import { SAFE_REQUEST_ID_REGEX } from '../enum/request.enum';
+import type { Backoff, RetryOptions } from '../type/resilience.type';
 import { cxt$req, type TRequestContext } from './context';
+import { environment } from './env';
 import { type Outcome, retry, timeout } from './resilience';
 
 // ── Trace propagation ─────────────────────────────────────────────────
 
 const REQUEST_ID = 'x-request-id';
 const USER_ID = 'x-user-id';
-const SAFE_ID = /^[A-Za-z0-9._-]{1,128}$/;
+
+let __compiled: { source: string; pattern: RegExp } | undefined;
+
+/**
+ * The accepted-request-id pattern: `SAFE_REQUEST_ID_REGEX` env, else the
+ * built-in one. Recompiled only when the env value changes. An invalid pattern
+ * throws — loudly, rather than silently accepting every id.
+ */
+function __safe(): RegExp {
+	const source = environment.get(
+		'SAFE_REQUEST_ID_REGEX',
+		SAFE_REQUEST_ID_REGEX,
+	);
+	if (__compiled?.source !== source) {
+		try {
+			__compiled = { source, pattern: new RegExp(source) };
+		} catch (error) {
+			throw new Error(
+				`SAFE_REQUEST_ID_REGEX is not a valid regular expression: ${source}`,
+				{ cause: error },
+			);
+		}
+	}
+	return __compiled.pattern;
+}
 
 export const trace$ = {
 	REQUEST_ID,
@@ -37,7 +64,7 @@ export const trace$ = {
 	 */
 	seed(req: Request): Partial<TRequestContext> | undefined {
 		const inbound = req.headers.get(REQUEST_ID)?.trim();
-		if (inbound && SAFE_ID.test(inbound)) return { requestId: inbound };
+		if (inbound && __safe().test(inbound)) return { requestId: inbound };
 		return undefined;
 	},
 };
@@ -58,7 +85,10 @@ export class HttpError extends Error {
 
 type HeaderMap = Record<string, string>;
 type Query = Record<string, string | number | boolean | null | undefined>;
-type RawBody = string | Blob | FormData | URLSearchParams | ReadableStream;
+// Anything fetch can send natively goes out as-is, never JSON-encoded: string,
+// Blob (and so File), FormData, URLSearchParams, ReadableStream, ArrayBuffer,
+// and typed arrays / DataView (so Buffer and Uint8Array too).
+type RawBody = NonNullable<RequestInit['body']>;
 
 export type ClientConfig = {
 	baseURL?: string;
@@ -72,6 +102,18 @@ export type ClientConfig = {
 	 * a per-call `retries` opts in.
 	 */
 	retries?: number;
+	/**
+	 * Wait between retries. Default exponential, 200ms doubling, capped at 2s.
+	 * Partial — unset fields keep the default. A per-call `backoff` overrides
+	 * this field by field.
+	 */
+	backoff?: Partial<Backoff>;
+	/**
+	 * Which outcomes to retry. Default: a network error, a timeout, or a 5xx.
+	 * Only decides *what* is retried — `retries` still decides how many times,
+	 * and non-idempotent methods still don't retry unless `retries` is set.
+	 */
+	retryable?: RetryOptions<Response>['retryable'];
 	/** Attach the trace headers to outbound requests. Default true. */
 	propagate?: boolean;
 	/** Swap the fetch implementation (tests, instrumentation). */
@@ -84,6 +126,8 @@ export type RequestConfig = {
 	body?: unknown;
 	timeout?: number;
 	retries?: number;
+	backoff?: Partial<Backoff>;
+	retryable?: RetryOptions<Response>['retryable'];
 	signal?: AbortSignal;
 };
 
@@ -120,7 +164,9 @@ function __isRaw(value: unknown): value is RawBody {
 		value instanceof URLSearchParams ||
 		value instanceof FormData ||
 		value instanceof Blob ||
-		value instanceof ReadableStream
+		value instanceof ReadableStream ||
+		value instanceof ArrayBuffer ||
+		ArrayBuffer.isView(value)
 	);
 }
 
@@ -146,8 +192,8 @@ function __transient(result: Outcome<Response>): boolean {
 	return result.data.status >= 500;
 }
 
-/** Waits between retries: 200ms, 400ms, 800ms, … capped at 2s. */
-const BACKOFF = { strategy: 'exponential', min: 200, max: 2_000 } as const;
+/** Default wait between retries: 200ms, 400ms, 800ms, … capped at 2s. */
+const BACKOFF: Backoff = { strategy: 'exponential', min: 200, max: 2_000 };
 
 export type HttpClient = ReturnType<typeof http>;
 
@@ -192,8 +238,8 @@ export function http(config: ClientConfig = {}) {
 		// is never retried.
 		return retry(({ signal }) => timeout(call, limit, { signal }), {
 			attempts: Math.max(0, retries) + 1,
-			backoff: BACKOFF,
-			retryable: __transient,
+			backoff: { ...BACKOFF, ...config.backoff, ...options.backoff },
+			retryable: options.retryable ?? config.retryable ?? __transient,
 			signal: options.signal,
 		});
 	}

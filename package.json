@@ -78,6 +78,10 @@
 			"types": "./dist/lib/patch/index.d.ts",
 			"default": "./dist/lib/patch/index.js"
 		},
+		"./enum": {
+			"types": "./dist/lib/enum/index.d.ts",
+			"default": "./dist/lib/enum/index.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"scripts": {

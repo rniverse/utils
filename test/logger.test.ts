@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { log, random, ulid } from '@utils';
+import { Writable } from 'node:stream';
+import { createLogger, log, random, ulid } from '@utils';
 import { cxt$req } from '@utils/context';
 import { uuid } from '@utils/id';
 
@@ -88,5 +89,110 @@ describe('Logger', () => {
 	test('should handle undefined and null values', () => {
 		expect(() => log.info(undefined as any)).not.toThrow();
 		expect(() => log.info(null as any)).not.toThrow();
+	});
+});
+
+describe('createLogger options', () => {
+	/** A destination that collects each written line. */
+	const sink = () => {
+		const lines: string[] = [];
+		const destination = new Writable({
+			write(chunk, _encoding, callback) {
+				lines.push(String(chunk));
+				callback();
+			},
+		});
+		return { lines, destination };
+	};
+	const json = (lines: string[]) => lines.map((line) => JSON.parse(line));
+
+	test('level option wins; below-level lines are dropped', () => {
+		const { lines, destination } = sink();
+		const logger = createLogger({ level: 'warn', pretty: false, destination });
+		logger.info('hidden');
+		logger.warn('shown');
+		expect(json(lines).map((l) => l.msg)).toEqual(['shown']);
+	});
+
+	test('level falls back to LOG_LEVEL', () => {
+		const previous = process.env.LOG_LEVEL;
+		process.env.LOG_LEVEL = 'error';
+		try {
+			expect(createLogger({ pretty: false }).level).toBe('error');
+		} finally {
+			if (previous === undefined) delete process.env.LOG_LEVEL;
+			else process.env.LOG_LEVEL = previous;
+		}
+	});
+
+	test('default redaction masks secrets at the top level and two levels deep', () => {
+		const { lines, destination } = sink();
+		const logger = createLogger({ level: 'info', pretty: false, destination });
+		logger.info(
+			{
+				password: 'p',
+				user: { accessToken: 'a', name: 'x' },
+				req: { headers: { cookie: 'c', host: 'h' } },
+			},
+			'm',
+		);
+		const [line] = json(lines);
+		expect(line.password).toBe('***');
+		expect(line.user).toEqual({ accessToken: '***', name: 'x' });
+		expect(line.req.headers).toEqual({ cookie: '***', host: 'h' });
+	});
+
+	test('redact option replaces the list', () => {
+		const { lines, destination } = sink();
+		const logger = createLogger({
+			level: 'info',
+			pretty: false,
+			redact: ['apiKey'],
+			destination,
+		});
+		logger.info({ apiKey: 'k', password: 'p' }, 'm');
+		const [line] = json(lines);
+		expect(line.apiKey).toBe('***');
+		expect(line.password).toBe('p');
+	});
+
+	test('redaction falls back to MASK_PROPS', () => {
+		const previous = process.env.MASK_PROPS;
+		process.env.MASK_PROPS = 'pin';
+		try {
+			const { lines, destination } = sink();
+			const logger = createLogger({
+				level: 'info',
+				pretty: false,
+				destination,
+			});
+			logger.info({ pin: 1234, password: 'p' }, 'm');
+			const [line] = json(lines);
+			expect(line.pin).toBe('***');
+			expect(line.password).toBe('p');
+		} finally {
+			if (previous === undefined) delete process.env.MASK_PROPS;
+			else process.env.MASK_PROPS = previous;
+		}
+	});
+
+	test('pretty: false writes JSON, pretty: true writes readable text', () => {
+		const plain = sink();
+		createLogger({
+			level: 'info',
+			pretty: false,
+			destination: plain.destination,
+		}).info('hello');
+		expect(() => JSON.parse(plain.lines[0] ?? '')).not.toThrow();
+
+		const readable = sink();
+		createLogger({
+			level: 'info',
+			pretty: true,
+			destination: readable.destination,
+		}).info('hello');
+		const text = readable.lines.join('');
+		expect(text).toContain('hello');
+		expect(() => JSON.parse(text)).toThrow();
 	});
 });

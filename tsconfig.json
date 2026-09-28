@@ -28,6 +28,8 @@
 		"paths": {
 			"@utils": ["./lib/utils/index.ts"],
 			"@utils/*": ["./lib/utils/*"],
+			"@enum": ["./lib/enum/index.ts"],
+			"@enum/*": ["./lib/enum/*"],
 			"@type": ["./lib/type/index.ts"],
 			"@type/*": ["./lib/type/*"],
 			"@context": ["./lib/utils/context/index.ts"],

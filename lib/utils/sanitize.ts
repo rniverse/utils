@@ -1,6 +1,22 @@
 // lib/utils/sanitize.ts
 
-const DEFAULT_KEYS = ['password', 'hash', 'token', 'secret'];
+import { MASK_CENSOR, MASK_PROPS } from '../enum/mask.enum';
+import { environment } from './env';
+
+/**
+ * Secret property names: the `MASK_PROPS` env var (comma-separated) when set,
+ * else the built-in `MASK_PROPS` list. The env var replaces the list — it
+ * doesn't add to it. Read on every call, so the logger and `sanitize`/`mask`
+ * always agree.
+ */
+export function secrets(): string[] {
+	const raw = environment.get('MASK_PROPS');
+	if (!raw) return [...MASK_PROPS];
+	return raw
+		.split(',')
+		.map((prop) => prop.trim())
+		.filter(Boolean);
+}
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
 	typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -9,11 +25,11 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> =>
  * Drop the given keys from an object. Shallow by default; pass `{ deep: true }`
  * to strip matching keys anywhere in a nested structure.
  *
- * Default keys: `password`, `hash`, `token`, `secret`.
+ * Default keys: `secrets()` — the `MASK_PROPS` env var, else the built-in list.
  */
 export function sanitize<T extends object>(
 	obj: T,
-	keys: string[] = DEFAULT_KEYS,
+	keys: string[] = secrets(),
 	options: { deep?: boolean } = {},
 ): Partial<T> {
 	const drop = new Set(keys);
@@ -36,12 +52,12 @@ export function sanitize<T extends object>(
  * Replace the values at the given keys with `maskWith` instead of dropping them.
  * Shallow by default; pass `{ deep: true }` for nested structures.
  *
- * Default keys: `password`, `hash`, `token`, `secret`.
+ * Default keys: `secrets()` — the `MASK_PROPS` env var, else the built-in list.
  */
 export function mask<T>(
 	obj: T,
-	keys: string[] = DEFAULT_KEYS,
-	maskWith = '***',
+	keys: string[] = secrets(),
+	maskWith = MASK_CENSOR,
 	options: { deep?: boolean } = {},
 ): T {
 	const hide = new Set(keys);
