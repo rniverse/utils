@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { mask, sanitize } from '@utils/sanitize';
+import { MASK_PROPS } from '@enum/mask.enum';
+import { mask, sanitize, secrets } from '@utils/sanitize';
 
 describe('sanitize', () => {
 	test('drops default keys, shallow', () => {
@@ -60,5 +61,51 @@ describe('mask', () => {
 		const input = { password: 'p' };
 		mask(input);
 		expect(input.password).toBe('p');
+	});
+});
+
+describe('secrets / MASK_PROPS', () => {
+	const withEnv = (value: string | undefined, fn: () => void) => {
+		const previous = process.env.MASK_PROPS;
+		if (value === undefined) delete process.env.MASK_PROPS;
+		else process.env.MASK_PROPS = value;
+		try {
+			fn();
+		} finally {
+			if (previous === undefined) delete process.env.MASK_PROPS;
+			else process.env.MASK_PROPS = previous;
+		}
+	};
+
+	test('defaults to the built-in list, the same one the logger uses', () => {
+		withEnv(undefined, () => {
+			expect(secrets()).toEqual([...MASK_PROPS]);
+			const out = sanitize({
+				accessToken: 'a',
+				refreshToken: 'r',
+				authorization: 'Bearer x',
+				cookie: 'c',
+				name: 'x',
+			});
+			expect(out).toEqual({ name: 'x' });
+		});
+	});
+
+	test('MASK_PROPS replaces the list (comma-separated, trimmed, blanks dropped)', () => {
+		withEnv(' apiKey , pin ,, ', () => {
+			expect(secrets()).toEqual(['apiKey', 'pin']);
+			// password is NOT masked any more — the env var replaces, not extends
+			expect(mask({ apiKey: 'k', pin: '1234', password: 'p' })).toEqual({
+				apiKey: '***',
+				pin: '***',
+				password: 'p',
+			});
+		});
+	});
+
+	test('a blank MASK_PROPS counts as unset', () => {
+		withEnv('   ', () => {
+			expect(secrets()).toEqual([...MASK_PROPS]);
+		});
 	});
 });

@@ -186,6 +186,62 @@ describe('http — retry', () => {
 	});
 });
 
+describe('http — backoff', () => {
+	const failing = () => stub(() => json({}, 503));
+
+	test('the default waits 200ms then 400ms between the 3 attempts of a GET', async () => {
+		const { fetch, calls } = failing();
+		const svc = http({ baseURL: 'http://b', fetch });
+		const started = Date.now();
+		await svc.get('/x').catch(() => {});
+		expect(calls).toHaveLength(3);
+		expect(Date.now() - started).toBeGreaterThanOrEqual(550);
+	});
+
+	test('a client backoff replaces the default', async () => {
+		const { fetch, calls } = failing();
+		const svc = http({
+			baseURL: 'http://b',
+			fetch,
+			backoff: { strategy: 'fixed', min: 0, max: 0 },
+		});
+		const started = Date.now();
+		await svc.get('/x').catch(() => {});
+		expect(calls).toHaveLength(3);
+		expect(Date.now() - started).toBeLessThan(150);
+	});
+
+	test('a per-call backoff overrides the client one', async () => {
+		const { fetch } = failing();
+		const svc = http({
+			baseURL: 'http://b',
+			fetch,
+			backoff: { strategy: 'fixed', min: 0, max: 0 },
+		});
+		const started = Date.now();
+		await svc.get('/x', { backoff: { min: 60, max: 60 } }).catch(() => {});
+		expect(Date.now() - started).toBeGreaterThanOrEqual(110);
+		expect(Date.now() - started).toBeLessThan(400); // not the 200+400 default
+	});
+
+	test('a partial backoff keeps the other default fields', async () => {
+		const { fetch, calls } = failing();
+		// only min changes: still exponential, still capped at 2s → waits 5, 10
+		const svc = http({ baseURL: 'http://b', fetch, backoff: { min: 5 } });
+		const started = Date.now();
+		await svc.get('/x').catch(() => {});
+		expect(calls).toHaveLength(3);
+		expect(Date.now() - started).toBeLessThan(150);
+	});
+
+	test('an invalid backoff rejects with RangeError', async () => {
+		const { fetch } = failing();
+		const svc = http({ baseURL: 'http://b', fetch, backoff: { max: 50 } });
+		// default min 200 > max 50
+		await expect(svc.get('/x')).rejects.toBeInstanceOf(RangeError);
+	});
+});
+
 describe('http — timeout', () => {
 	test('aborts a slow request', async () => {
 		const { fetch } = stub(
@@ -199,5 +255,128 @@ describe('http — timeout', () => {
 		);
 		const svc = http({ baseURL: 'http://b', fetch, retries: 0 });
 		await expect(svc.get('/slow', { timeout: 10 })).rejects.toThrow();
+	});
+});
+
+describe('trace$.seed — SAFE_REQUEST_ID_REGEX', () => {
+	const withEnv = (value: string | undefined, fn: () => void) => {
+		const previous = process.env.SAFE_REQUEST_ID_REGEX;
+		if (value === undefined) delete process.env.SAFE_REQUEST_ID_REGEX;
+		else process.env.SAFE_REQUEST_ID_REGEX = value;
+		try {
+			fn();
+		} finally {
+			if (previous === undefined) delete process.env.SAFE_REQUEST_ID_REGEX;
+			else process.env.SAFE_REQUEST_ID_REGEX = previous;
+		}
+	};
+	const inbound = (id: string) =>
+		new Request('http://x/', { headers: { 'x-request-id': id } });
+
+	test('default pattern: adopts a safe id, ignores an unsafe one', () => {
+		withEnv(undefined, () => {
+			expect(trace$.seed(inbound('abc-123'))).toEqual({ requestId: 'abc-123' });
+			expect(trace$.seed(inbound('bad id!'))).toBeUndefined();
+		});
+	});
+
+	test('the env var replaces the pattern', () => {
+		withEnv('^req_[0-9]+$', () => {
+			expect(trace$.seed(inbound('req_42'))).toEqual({ requestId: 'req_42' });
+			expect(trace$.seed(inbound('abc-123'))).toBeUndefined();
+		});
+	});
+
+	test('an invalid pattern throws, naming the env var', () => {
+		withEnv('([unclosed', () => {
+			expect(() => trace$.seed(inbound('x'))).toThrow('SAFE_REQUEST_ID_REGEX');
+		});
+	});
+});
+
+describe('http — bodies sent as-is (files, binary)', () => {
+	const cases: Array<[string, () => unknown]> = [
+		[
+			'FormData with a File',
+			() => {
+				const form = new FormData();
+				form.append(
+					'upload',
+					new File(['hello'], 'a.txt', { type: 'text/plain' }),
+				);
+				return form;
+			},
+		],
+		['File', () => new File(['hello'], 'a.txt')],
+		['Blob', () => new Blob(['hello'])],
+		['Uint8Array', () => new Uint8Array([1, 2, 3])],
+		['Buffer', () => Buffer.from('hello')],
+		['ArrayBuffer', () => new Uint8Array([1, 2, 3]).buffer],
+		['URLSearchParams', () => new URLSearchParams({ a: '1' })],
+	];
+
+	for (const [name, make] of cases) {
+		test(`${name}: passed through unchanged, no JSON content-type`, async () => {
+			const body = make();
+			const { fetch, calls } = stub(() => json({ ok: true }));
+			await http({ baseURL: 'http://b', fetch }).post('/upload', { body });
+			expect(calls[0]?.body).toBe(body);
+			expect(calls[0]?.headers['content-type']).not.toBe('application/json');
+		});
+	}
+
+	test('a plain object is still JSON-encoded', async () => {
+		const { fetch, calls } = stub(() => json({ ok: true }));
+		await http({ baseURL: 'http://b', fetch }).post('/x', { body: { a: 1 } });
+		expect(calls[0]?.body).toBe('{"a":1}');
+		expect(calls[0]?.headers['content-type']).toBe('application/json');
+	});
+});
+
+describe('http — retryable', () => {
+	const tooMany = () => {
+		let n = 0;
+		return stub(() => (++n < 2 ? json({}, 429) : json({ ok: true })));
+	};
+	const fast = { strategy: 'fixed', min: 0, max: 0 } as const;
+
+	test('a 429 is not retried by default', async () => {
+		const { fetch, calls } = tooMany();
+		await http({ baseURL: 'http://b', fetch, backoff: fast })
+			.get('/x')
+			.catch(() => {});
+		expect(calls).toHaveLength(1);
+	});
+
+	test('a client retryable can add 429', async () => {
+		const { fetch, calls } = tooMany();
+		const svc = http({
+			baseURL: 'http://b',
+			fetch,
+			backoff: fast,
+			retryable: (result) =>
+				!result.ok || result.data.status >= 500 || result.data.status === 429,
+		});
+		expect(await svc.get<{ ok: boolean }>('/x')).toEqual({ ok: true });
+		expect(calls).toHaveLength(2);
+	});
+
+	test('a per-call retryable overrides the client one', async () => {
+		const { fetch, calls } = stub(() => json({}, 503));
+		const svc = http({ baseURL: 'http://b', fetch, backoff: fast });
+		await svc.get('/x', { retryable: () => false }).catch(() => {});
+		expect(calls).toHaveLength(1);
+	});
+
+	test('retryable does not make a POST retry — retries still decides that', async () => {
+		const { fetch, calls } = stub(() => json({}, 503));
+		const svc = http({
+			baseURL: 'http://b',
+			fetch,
+			backoff: fast,
+			retryable: () => true,
+		});
+		await svc.post('/x', { body: {} }).catch(() => {});
+		expect(calls).toHaveLength(1);
 	});
 });

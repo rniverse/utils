@@ -39,9 +39,10 @@ plugins, and loads `jose`):
 @rniverse/utils/lazy       lazy
 @rniverse/utils/result     ok, err, Result
 @rniverse/utils/crypto     randomToken, randomInt, sha256hex
-@rniverse/utils/password   password
+@rniverse/utils/password   password, Password
 @rniverse/utils/duration   duration
-@rniverse/utils/sanitize   sanitize, mask
+@rniverse/utils/sanitize   sanitize, mask, secrets
+@rniverse/utils/enum       MASK_PROPS, MASK_CENSOR, SAFE_REQUEST_ID_REGEX, PASSWORD_DEFAULTS
 @rniverse/utils/datetime   date
 @rniverse/utils/id         uuid, ulid
 @rniverse/utils/generic    sleep, isBun, safeParseInt, boundedParseInt
@@ -53,9 +54,14 @@ plugins, and loads `jose`):
 
 | var | read by | effect |
 |---|---|---|
-| `NODE_ENV` | `logger` | `production` → newline-JSON logs instead of pretty |
+| `NODE_ENV` | `logger` | `test` forces pretty output (otherwise JSON unless `LOG_PRETTY` / a TTY) |
 | `LOG_LEVEL` | `logger` | `trace`\|`debug`\|`info`\|`warn`\|`error`\|`fatal`\|`silent` (default `info`) |
 | `LOG_PRETTY` | `logger` | `true` forces pretty output even without a TTY |
+| `MASK_PROPS` | `logger`, `sanitize`, `mask` | comma-separated property names to mask — **replaces** the default list |
+| `SAFE_REQUEST_ID_REGEX` | `trace$.seed` | pattern an inbound `x-request-id` must match (default `^[A-Za-z0-9._-]{1,128}$`) |
+
+Every env var has a code-level override except `SAFE_REQUEST_ID_REGEX` — see
+[`docs/defaults.md`](docs/defaults.md) for all defaults and what's fixed.
 
 ---
 
@@ -75,17 +81,27 @@ environment.required(name: string, fallback?: string): string   // throws if uns
 ## Logging — `@rniverse/utils/logger`
 
 ```ts
-log: pino.Logger              // the shared instance
-createLogger(): pino.Logger   // a fresh instance (same config)
+log: pino.Logger              // the shared instance — createLogger() at import
+createLogger(options?: {
+  level?: string                 // default LOG_LEVEL env, else 'info'
+  pretty?: boolean               // default: NODE_ENV=test, LOG_PRETTY=true, or a TTY
+  redact?: string[]              // default MASK_PROPS env, else the MASK_PROPS enum
+  destination?: DestinationStream  // default stdout
+}): pino.Logger
 ```
+
+Each option falls back to its env var, then the built-in default. `log` reads
+the env once, at import — set `LOG_LEVEL` etc. before importing utils.
 
 - **Format** — newline-delimited JSON, except pretty + synchronous when
   `NODE_ENV=test`, `LOG_PRETTY=true`, or stdout is a TTY.
 - **Context** — every line carries `reqId` / `userId` pulled from the current
   request context (see below).
-- **Redaction** — `password`, `hash`, `token`, `secret`, `authorization`,
-  `accessToken`, `refreshToken`, `headers.cookie` (and one level deep, `*.x`) are
-  replaced with `***`.
+- **Redaction** — `password`, `hash`, `token`, `accessToken`, `refreshToken`,
+  `secret`, `authorization`, `cookie` (the `MASK_PROPS` enum) are replaced with
+  `***` at the top level and up to two levels deep. `MASK_PROPS=a,b` (env)
+  **replaces** that list; to add to it in code, spread the enum:
+  `createLogger({ redact: [...MASK_PROPS, 'apiKey'] })`.
 - **Extra level** — `log.log(...)` sits at 25, between `debug` and `info`.
 
 ---
@@ -136,6 +152,7 @@ type ClientConfig = {
   headers?: Record<string, string>   // sent on every request
   timeout?: number                   // ms, per attempt
   retries?: number                   // extra attempts for idempotent calls on net-error / 5xx (default 2)
+  backoff?: Partial<Backoff>         // wait between retries (default exponential, 200ms–2s); partial merges over the default
   propagate?: boolean                // attach trace headers (default true; false for third-party)
   fetch?: typeof fetch               // override (tests)
 }
@@ -146,6 +163,7 @@ type RequestConfig = {
   body?: unknown                     // non-BodyInit → JSON.stringify + application/json
   timeout?: number
   retries?: number
+  backoff?: Partial<Backoff>         // overrides the client's backoff field by field
   signal?: AbortSignal
 }
 
@@ -285,7 +303,14 @@ first call throws a clear message if it isn't installed.
 ```ts
 password.hash(plain: string): Promise<string>
 password.verify(plain: string, digest: string): Promise<boolean>
+
+// custom argon2 settings — partial, unset fields keep PASSWORD_DEFAULTS
+const strong = new Password({ memoryCost: 131_072, timeCost: 4 });
 ```
+
+`password` is `new Password()` with `PASSWORD_DEFAULTS` (`argon2id`, 64 MiB,
+`timeCost: 3`, `parallelism: 4`, `hashLength: 32`). `verify` needs no settings
+— a digest from any instance verifies with any other.
 
 ## JWT — barrel only
 
@@ -343,8 +368,9 @@ type TemplateConfig = { hardcode?; getters?: string[]; now?: boolean; default?: 
 ## Sanitize — `@rniverse/utils/sanitize`
 
 ```ts
-sanitize<T>(obj: T, keys = ['password','hash','token','secret'], opts?: { deep?: boolean }): Partial<T>   // drop keys
-mask<T>(obj: T, keys = ['password','hash','token','secret'], maskWith = '***', opts?: { deep?: boolean }): T  // replace values
+sanitize<T>(obj: T, keys = secrets(), opts?: { deep?: boolean }): Partial<T>   // drop keys
+mask<T>(obj: T, keys = secrets(), maskWith = '***', opts?: { deep?: boolean }): T  // replace values
+secrets(): string[]   // MASK_PROPS env (comma-separated), else the MASK_PROPS enum — same list the logger masks
 ```
 
 Shallow by default; `{ deep: true }` walks nested objects and arrays.

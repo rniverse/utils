@@ -29,9 +29,11 @@ The following environment variables can be configured:
 
 | Variable | Description | Default |
 |----------|-------------|----------|
-| `NODE_ENV` | `production` → newline-JSON logs instead of pretty | — |
+| `NODE_ENV` | `test` forces pretty logs (otherwise JSON unless `LOG_PRETTY` / a TTY) | — |
 | `LOG_LEVEL` | `trace` \| `debug` \| `info` \| `warn` \| `error` \| `fatal` \| `silent` | `'info'` |
 | `LOG_PRETTY` | `true` forces pretty logs even without a TTY | — |
+| `MASK_PROPS` | comma-separated property names to mask in logs / `sanitize` / `mask` — replaces the default list | `MASK_PROPS` enum |
+| `SAFE_REQUEST_ID_REGEX` | pattern an inbound `x-request-id` must match | `^[A-Za-z0-9._-]{1,128}$` |
 | `INSTANCE_NAME` | App/instance name for `environment` consumers (e.g. connectors) | — |
 
 ## Quick Start
