@@ -10,8 +10,17 @@ export function lazy(load) {
         get() {
             if (slot)
                 return slot;
-            // `.then(load)` so a synchronous throw inside `load` becomes a rejection.
-            const mine = Promise.resolve().then(load);
+            // Start `load` now, synchronously — not a microtask later — so its
+            // synchronous prefix runs before `get()` returns. A caller that does
+            // `get(); close()` can rely on the load having begun first. A
+            // synchronous throw still becomes a rejection.
+            let mine;
+            try {
+                mine = Promise.resolve(load());
+            }
+            catch (error) {
+                mine = Promise.reject(error);
+            }
             slot = mine;
             // Clear only our own failed load: after a `reset()` and a newer load,
             // `slot` holds that one, and this stale failure must not touch it.
