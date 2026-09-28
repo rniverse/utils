@@ -35,7 +35,8 @@ plugins, and loads `jose`):
 @rniverse/utils/logger     log, createLogger
 @rniverse/utils/context    cxt$req, RequestContext, runWithContext
 @rniverse/utils/request    http, trace$, HttpError
-@rniverse/utils/retry      retry
+@rniverse/utils/resilience retry, timeout, resilient, CircuitBreaker, TimeoutError, CircuitOpenError
+@rniverse/utils/lazy       lazy
 @rniverse/utils/result     ok, err, Result
 @rniverse/utils/crypto     randomToken, randomInt, sha256hex
 @rniverse/utils/password   password
@@ -174,22 +175,47 @@ trace$.seed(req: Request): Partial<TRequestContext> | undefined  // pass to cxt$
 
 ---
 
-## Retry — `@rniverse/utils/retry`
+## Resilience — `@rniverse/utils/resilience`
+
+Full design and rationale: [`docs/resilience.md`](docs/resilience.md).
 
 ```ts
-retry<T>(fn: () => T | Promise<T>, options?: RetryOptions<T>): Promise<T>
+type Outcome<T> = Ok<T> | Err          // { ok: true, data } | { ok: false, error }
 
-type RetryOutcome<T> = { ok: true; value: T } | { ok: false; error: unknown }
-type RetryOptions<T> = {
-  attempts?: number                                    // total, incl. first (default 3)
-  delay?: number | ((attempt: number) => number)       // ms before retry N (default n => 1000 * n)
-  retryIf?: (o: RetryOutcome<T>, attempt: number) => boolean   // default: retry on throw
-  onRetry?: (o: RetryOutcome<T>, attempt: number, delayMs: number) => void
-}
+// Stop waiting after ms (0 / Infinity = no limit). Aborts the signal work received.
+timeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number, opts?: { signal? }): Promise<T>
+
+// Call again on outcomes `retryable` accepts. attempts counts the first call; default 1.
+retry<T>(work: ({ attempt, signal }) => Promise<T>, {
+  attempts?: number,                                   // default 1 — retry is opt-in
+  backoff?: { strategy?: 'fixed' | 'exponential' | 'jitter', min?: number, max?: number },  // default exponential, 10ms–3s
+  retryable?: (result: Outcome<T>, { attempt, attempts, delay, elapsed }) => boolean | Promise<boolean>,  // default: errors only
+  signal?: AbortSignal,
+  on?: { retry?: ({ attempt, attempts, delay, elapsed, result }) => void },
+}): Promise<T>
+
+// Fail fast once a dependency keeps failing; one trial call after cooldown.
+new CircuitBreaker({ threshold?: 5, cooldown?: 30_000, trips?: (result) => boolean, on?: { open, trial, close } })
+breaker.run(work, { signal? })        // throws CircuitOpenError (remaining ms) while open
+breaker.state                         // 'closed' | 'open' | 'half-open'
+
+// total timeout › retry › breaker › attempt timeout › work. CircuitOpenError is never retried.
+resilient<T>(work, { timeout?: { total?, attempt? }, retry?, breaker?, signal? }): Promise<T>
 ```
 
-On exhaustion the last returned value is passed through; a final thrown error is
-re-thrown.
+The caller's own errors always come out unchanged (no wrapping); negative
+durations throw `RangeError`.
+
+## Lazy — `@rniverse/utils/lazy`
+
+```ts
+const admin = lazy(() => connectAdmin());
+await admin.get();   // first call loads; concurrent calls share that load; later calls get the cached value
+admin.reset();       // forget it — the next get() loads again
+```
+
+A failed load isn't cached. A load still in flight during `reset()` never
+overwrites a newer one.
 
 ---
 
@@ -352,7 +378,7 @@ export * from 'undici'   // fetch, Client, Pool, Agent, request, Headers, …
 ## Misc — `@rniverse/utils/generic`
 
 ```ts
-sleep(ms: number): Promise<void>
+sleep(ms: number, opts?: { signal?: AbortSignal }): Promise<void>  // Infinity = until aborted
 isBun(): boolean
 safeParseInt(value: unknown, fallback = 0, radix = 10): number
 boundedParseInt(value: unknown, opts: { min?: number; max?: number; fallback?: number }): number
