@@ -28,7 +28,7 @@ export async function retry(work, options = {}) {
     const startedAt = Date.now();
     for (let attempt = 1;; attempt++) {
         signal?.throwIfAborted();
-        const result = await __attempt(work, attempt, signal);
+        const result = await __attempt(work, { attempt, signal });
         if (signal?.aborted)
             throw signal.reason;
         if (attempt >= attempts)
@@ -36,7 +36,7 @@ export async function retry(work, options = {}) {
         const context = {
             attempt,
             attempts,
-            delay: __delay(backoff, attempt),
+            delay: __delay(backoff, { attempt }),
             elapsed: Date.now() - startedAt,
         };
         if (!(await retryable(result, context)))
@@ -46,7 +46,8 @@ export async function retry(work, options = {}) {
     }
 }
 /** One call to `work` with its own signal, linked to the caller's. */
-async function __attempt(work, attempt, signal) {
+async function __attempt(work, options) {
+    const { attempt, signal } = options;
     const controller = new AbortController();
     const onAbort = () => controller.abort(signal?.reason);
     signal?.addEventListener('abort', onAbort, { once: true });
@@ -64,7 +65,8 @@ async function __attempt(work, attempt, signal) {
     }
 }
 /** Wait after attempt `n` fails, clamped to `[min, max]`. */
-function __delay({ strategy, min, max }, attempt) {
+function __delay({ strategy, min, max }, options) {
+    const { attempt } = options;
     if (strategy === 'fixed')
         return min;
     // Exponent capped so a huge attempt number can't overflow to Infinity/NaN.

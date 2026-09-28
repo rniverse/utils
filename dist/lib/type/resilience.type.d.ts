@@ -43,6 +43,15 @@ export type BreakerTrial = {
     startedAt: number;
     token: symbol;
 };
+/** Options for `CircuitBreaker.run` / `trial`. */
+export type BreakerRunOptions = {
+    signal?: AbortSignal;
+};
+/** Options for `CircuitBreaker.open`. */
+export type BreakerOpenOptions = {
+    /** ms to stay open. Default: the breaker's `cooldown`. */
+    ms?: number;
+};
 export type BreakerOptions = {
     /** Consecutive counted failures that open the circuit. Default 5. */
     threshold?: number;
