@@ -360,12 +360,35 @@ type BreakerOptions = {
 class CircuitBreaker {
   constructor(options?: BreakerOptions);
   run<T>(work: () => Promise<T>, options?: { signal?: AbortSignal }): Promise<T>;
+  trial<T>(work: () => Promise<T>, options?: { signal?: AbortSignal }): Promise<T>;
+  open(options?: { ms?: number }): void;   // trip by hand
+  reset(): void;                           // force closed
   get state(): BreakerState;
-  reset(): void;
+  get failures(): number;                  // consecutive counted failures
+  get remaining(): number;                 // ms until another call is permitted
 }
 ```
 
 Defaults: `threshold: 5`, `cooldown: 30_000`, `trips: (result) => !result.ok`.
+
+### Manual controls
+
+For admin endpoints, maintenance and dashboards:
+
+- **`trial(work)`** — run the trial *now* instead of waiting out the cooldown
+  ("check now", "dependency just redeployed"). Same rules as the automatic
+  trial: success closes, failure reopens with a fresh cooldown, one trial at a
+  time (a concurrent `trial()` or `run()` gets `CircuitOpenError`). While
+  closed, a normal counted call.
+- **`open({ ms })`** — trip by hand: planned maintenance, a known outage, a
+  kill switch. Refuses calls for `ms` (default `cooldown`), then allows a
+  trial as usual. Fires `on.open`. A trial in flight is abandoned.
+- **`reset()`** — force closed: normal traffic resumes, counts cleared.
+- **`failures`, `remaining`, `state`** — read-only, for display and metrics:
+  "open, retry in 12 s, 3 failures".
+
+There's deliberately no manual "record a success/failure": feeding the breaker
+outside `run()`/`trial()` would sidestep the single-trial rules.
 
 `trips` takes `Outcome<unknown>`, not `Outcome<T>`: one breaker guards many
 calls with different return types (`run<T>` is per call), so its predicate

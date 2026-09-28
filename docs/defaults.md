@@ -196,6 +196,7 @@ With defaults, exponential waits: 10, 20, 40, 80, 160, 320, 640, 1280, 2560,
 | `threshold` | `5` consecutive counted failures (integer ≥ 1) |
 | `cooldown` | `30_000` |
 | `trips` | `(result) => !result.ok` — every error counts, no success does |
+| `open({ ms })` | `ms` = the breaker's `cooldown` |
 
 **`resilient`**
 

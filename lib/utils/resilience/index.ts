@@ -1,7 +1,9 @@
 export type {
 	Attempt,
 	Backoff,
+	BreakerOpenOptions,
 	BreakerOptions,
+	BreakerRunOptions,
 	BreakerState,
 	Outcome,
 	ResilientOptions,
