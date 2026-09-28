@@ -1,3 +1,4 @@
+import type { Backoff, RetryOptions } from '../type/resilience.type.js';
 import { type TRequestContext } from './context/index.js';
 export declare const trace$: {
     REQUEST_ID: string;
@@ -33,6 +34,18 @@ export type ClientConfig = {
      * a per-call `retries` opts in.
      */
     retries?: number;
+    /**
+     * Wait between retries. Default exponential, 200ms doubling, capped at 2s.
+     * Partial — unset fields keep the default. A per-call `backoff` overrides
+     * this field by field.
+     */
+    backoff?: Partial<Backoff>;
+    /**
+     * Which outcomes to retry. Default: a network error, a timeout, or a 5xx.
+     * Only decides *what* is retried — `retries` still decides how many times,
+     * and non-idempotent methods still don't retry unless `retries` is set.
+     */
+    retryable?: RetryOptions<Response>['retryable'];
     /** Attach the trace headers to outbound requests. Default true. */
     propagate?: boolean;
     /** Swap the fetch implementation (tests, instrumentation). */
@@ -44,6 +57,8 @@ export type RequestConfig = {
     body?: unknown;
     timeout?: number;
     retries?: number;
+    backoff?: Partial<Backoff>;
+    retryable?: RetryOptions<Response>['retryable'];
     signal?: AbortSignal;
 };
 export type HttpClient = ReturnType<typeof http>;

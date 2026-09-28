@@ -3,12 +3,31 @@
 // A small JSON HTTP client for service-to-service calls. Every outbound request
 // carries the current request context (requestId / userId) as headers, so a
 // chain A -> B -> C shares one requestId. An explicit header always wins.
+import { SAFE_REQUEST_ID_REGEX } from '../enum/request.enum.js';
 import { cxt$req } from './context/index.js';
+import { environment } from './env.js';
 import { retry, timeout } from './resilience/index.js';
 // ── Trace propagation ─────────────────────────────────────────────────
 const REQUEST_ID = 'x-request-id';
 const USER_ID = 'x-user-id';
-const SAFE_ID = /^[A-Za-z0-9._-]{1,128}$/;
+let __compiled;
+/**
+ * The accepted-request-id pattern: `SAFE_REQUEST_ID_REGEX` env, else the
+ * built-in one. Recompiled only when the env value changes. An invalid pattern
+ * throws — loudly, rather than silently accepting every id.
+ */
+function __safe() {
+    const source = environment.get('SAFE_REQUEST_ID_REGEX', SAFE_REQUEST_ID_REGEX);
+    if (__compiled?.source !== source) {
+        try {
+            __compiled = { source, pattern: new RegExp(source) };
+        }
+        catch (error) {
+            throw new Error(`SAFE_REQUEST_ID_REGEX is not a valid regular expression: ${source}`, { cause: error });
+        }
+    }
+    return __compiled.pattern;
+}
 export const trace$ = {
     REQUEST_ID,
     USER_ID,
@@ -33,7 +52,7 @@ export const trace$ = {
      */
     seed(req) {
         const inbound = req.headers.get(REQUEST_ID)?.trim();
-        if (inbound && SAFE_ID.test(inbound))
+        if (inbound && __safe().test(inbound))
             return { requestId: inbound };
         return undefined;
     },
@@ -74,7 +93,9 @@ function __isRaw(value) {
         value instanceof URLSearchParams ||
         value instanceof FormData ||
         value instanceof Blob ||
-        value instanceof ReadableStream);
+        value instanceof ReadableStream ||
+        value instanceof ArrayBuffer ||
+        ArrayBuffer.isView(value));
 }
 /** Serialise the body and report the content-type it implies, if any. */
 function __encode(value) {
@@ -100,7 +121,7 @@ function __transient(result) {
         return true;
     return result.data.status >= 500;
 }
-/** Waits between retries: 200ms, 400ms, 800ms, … capped at 2s. */
+/** Default wait between retries: 200ms, 400ms, 800ms, … capped at 2s. */
 const BACKOFF = { strategy: 'exponential', min: 200, max: 2_000 };
 export function http(config = {}) {
     const propagate = config.propagate ?? true;
@@ -132,8 +153,8 @@ export function http(config = {}) {
         // is never retried.
         return retry(({ signal }) => timeout(call, limit, { signal }), {
             attempts: Math.max(0, retries) + 1,
-            backoff: BACKOFF,
-            retryable: __transient,
+            backoff: { ...BACKOFF, ...config.backoff, ...options.backoff },
+            retryable: options.retryable ?? config.retryable ?? __transient,
             signal: options.signal,
         });
     }

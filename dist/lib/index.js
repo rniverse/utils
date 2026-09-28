@@ -1,3 +1,4 @@
+export * from './enum/index.js';
 export * from './type/index.js';
 export * from './utils/index.js';
 // NOTE: `./patch` (String.prototype.fmt) is intentionally NOT re-exported here —
