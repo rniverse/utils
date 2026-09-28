@@ -148,3 +148,15 @@ describe('lazy', () => {
 		expect(await value.get().catch((e) => e)).toBe(error);
 	});
 });
+
+describe('lazy — load timing', () => {
+	test('load() starts synchronously inside get(), not a tick later', () => {
+		let started = false;
+		const value = lazy(async () => {
+			started = true;
+			return 1;
+		});
+		value.get();
+		expect(started).toBe(true);
+	});
+});

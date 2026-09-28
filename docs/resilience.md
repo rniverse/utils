@@ -547,7 +547,12 @@ let slot: Promise<T> | null = null;
 
 function get(): Promise<T> {
   if (slot) return slot;
-  const mine = Promise.resolve().then(load);  // a synchronous throw becomes a rejection
+  let mine: Promise<T>;
+  try {
+    mine = Promise.resolve(load());           // starts now, not a tick later
+  } catch (error) {
+    mine = Promise.reject(error);             // a synchronous throw becomes a rejection
+  }
   slot = mine;
   mine.catch(() => {
     if (slot === mine) slot = null;           // clear only our own failed load
@@ -716,6 +721,7 @@ Implementation isn't done until each of these has a test.
 - [x] a successful load is cached; later `get()`s don't call `load()`
 - [x] a failed load isn't cached; the next `get()` loads again
 - [x] a synchronous throw in `load()` behaves like a rejected load
+- [x] `load()` starts synchronously inside `get()` (so `get(); close()` sees the load already begun)
 - [x] `reset()` forces a fresh load
 - [x] reset during load A, then load B: A settling **after** B doesn't overwrite B
 - [x] reset during load A, then load B: A settling **before** B doesn't overwrite B
