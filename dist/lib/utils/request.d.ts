@@ -1,5 +1,6 @@
 import type { Backoff, RetryOptions } from '../type/resilience.type.js';
 import { type TRequestContext } from './context/index.js';
+import type { Result } from './result.js';
 export declare const trace$: {
     REQUEST_ID: string;
     USER_ID: string;
@@ -48,6 +49,11 @@ export type ClientConfig = {
     retryable?: RetryOptions<Response>['retryable'];
     /** Attach the trace headers to outbound requests. Default true. */
     propagate?: boolean;
+    /**
+     * Path (relative to `baseURL`) or absolute URL `health()` calls. Default
+     * `/health`.
+     */
+    health?: string;
     /** Swap the fetch implementation (tests, instrumentation). */
     fetch?: typeof fetch;
 };
@@ -64,6 +70,7 @@ export type RequestConfig = {
 export type HttpClient = ReturnType<typeof http>;
 export declare function http(config?: ClientConfig): {
     send: (method: string, path: string, options?: RequestConfig) => Promise<Response>;
+    health: (options?: RequestConfig) => Promise<Result<unknown>>;
     get: <T = unknown>(path: string, options?: RequestConfig) => Promise<T>;
     post: <T = unknown>(path: string, options?: RequestConfig) => Promise<T>;
     put: <T = unknown>(path: string, options?: RequestConfig) => Promise<T>;

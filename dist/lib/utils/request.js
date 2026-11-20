@@ -123,6 +123,8 @@ function __transient(result) {
 }
 /** Default wait between retries: 200ms, 400ms, 800ms, … capped at 2s. */
 const BACKOFF = { strategy: 'exponential', min: 200, max: 2_000 };
+/** Default `health()` path. */
+const HEALTH = '/health';
 export function http(config = {}) {
     const propagate = config.propagate ?? true;
     /** One request, with retry. Returns the raw Response, even for a 4xx/5xx. */
@@ -166,8 +168,22 @@ export function http(config = {}) {
             throw new HttpError(response, body);
         return body;
     }
+    /**
+     * GET the configured health endpoint with the client's timeout and
+     * retries. Any 2xx is healthy; the parsed body is the `data`. Never throws.
+     */
+    async function health(options) {
+        try {
+            const data = await request('GET', config.health ?? HEALTH, options);
+            return { ok: true, data };
+        }
+        catch (error) {
+            return { ok: false, error };
+        }
+    }
     return {
         send,
+        health,
         get: (path, options) => request('GET', path, options),
         post: (path, options) => request('POST', path, options),
         put: (path, options) => request('PUT', path, options),
