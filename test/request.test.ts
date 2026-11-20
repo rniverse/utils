@@ -380,3 +380,40 @@ describe('http — retryable', () => {
 		expect(calls).toHaveLength(1);
 	});
 });
+
+describe('http — health', () => {
+	test('GETs /health by default; a 2xx is ok with the parsed body', async () => {
+		const { fetch, calls } = stub(() => json({ up: true }));
+		const svc = http({ baseURL: 'http://svc', fetch });
+		expect(await svc.health()).toEqual({ ok: true, data: { up: true } });
+		expect(calls[0]?.method).toBe('GET');
+		expect(calls[0]?.url).toBe('http://svc/health');
+	});
+
+	test('uses the configured path', async () => {
+		const { fetch, calls } = stub(() => new Response(null, { status: 204 }));
+		const svc = http({ baseURL: 'http://svc', health: '/api/health', fetch });
+		expect((await svc.health()).ok).toBe(true);
+		expect(calls[0]?.url).toBe('http://svc/api/health');
+	});
+
+	test('a non-2xx or network error is { ok: false }, never thrown', async () => {
+		const down = http({
+			baseURL: 'http://svc',
+			retries: 0,
+			fetch: stub(() => json({ up: false }, 503)).fetch,
+		});
+		const bad = await down.health();
+		expect(bad.ok).toBe(false);
+		expect(!bad.ok && bad.error).toBeInstanceOf(HttpError);
+
+		const broken = http({
+			baseURL: 'http://svc',
+			retries: 0,
+			fetch: (async () => {
+				throw new TypeError('fetch failed');
+			}) as unknown as typeof fetch,
+		});
+		expect((await broken.health()).ok).toBe(false);
+	});
+});

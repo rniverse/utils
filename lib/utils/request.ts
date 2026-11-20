@@ -9,6 +9,7 @@ import type { Backoff, RetryOptions } from '../type/resilience.type';
 import { cxt$req, type TRequestContext } from './context';
 import { environment } from './env';
 import { type Outcome, retry, timeout } from './resilience';
+import type { Result } from './result';
 
 // ── Trace propagation ─────────────────────────────────────────────────
 
@@ -116,6 +117,11 @@ export type ClientConfig = {
 	retryable?: RetryOptions<Response>['retryable'];
 	/** Attach the trace headers to outbound requests. Default true. */
 	propagate?: boolean;
+	/**
+	 * Path (relative to `baseURL`) or absolute URL `health()` calls. Default
+	 * `/health`.
+	 */
+	health?: string;
 	/** Swap the fetch implementation (tests, instrumentation). */
 	fetch?: typeof fetch;
 };
@@ -195,6 +201,9 @@ function __transient(result: Outcome<Response>): boolean {
 /** Default wait between retries: 200ms, 400ms, 800ms, … capped at 2s. */
 const BACKOFF: Backoff = { strategy: 'exponential', min: 200, max: 2_000 };
 
+/** Default `health()` path. */
+const HEALTH = '/health';
+
 export type HttpClient = ReturnType<typeof http>;
 
 export function http(config: ClientConfig = {}) {
@@ -256,8 +265,22 @@ export function http(config: ClientConfig = {}) {
 		return body as T;
 	}
 
+	/**
+	 * GET the configured health endpoint with the client's timeout and
+	 * retries. Any 2xx is healthy; the parsed body is the `data`. Never throws.
+	 */
+	async function health(options?: RequestConfig): Promise<Result<unknown>> {
+		try {
+			const data = await request('GET', config.health ?? HEALTH, options);
+			return { ok: true, data };
+		} catch (error) {
+			return { ok: false, error };
+		}
+	}
+
 	return {
 		send,
+		health,
 		get: <T = unknown>(path: string, options?: RequestConfig) =>
 			request<T>('GET', path, options),
 		post: <T = unknown>(path: string, options?: RequestConfig) =>
