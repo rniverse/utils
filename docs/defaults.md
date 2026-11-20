@@ -150,6 +150,7 @@ no options, created at import.
 | `retryable` (client or per call) | retry on a network error, a timeout, or a `5xx` response | `(result, context) => boolean` over `{ ok, data: Response } \| { ok: false, error }` — e.g. add `429`. Decides *which* outcomes retry; `retries` still decides how many, and `POST`/`PATCH` still need `retries` set. Per call overrides client. A caller abort is never retried. |
 | `backoff` (client or per call) | `{ strategy: 'exponential', min: 200, max: 2_000 }` → waits 200, 400, 800 … capped at 2000 | partial: unset fields keep the default; per-call overrides client field by field. Differs from `retry`'s own default (10ms–3s) on purpose — HTTP retries back off harder |
 | `propagate` | `true` | adds trace headers to outbound calls |
+| `health` | `/health` | path (relative to `baseURL`) or absolute URL `health()` GETs; any `2xx` → `{ ok: true, data }`, anything else → `{ ok: false, error }`, never throws |
 | `fetch` | the global `fetch` | |
 | Request `content-type` | `application/json` when the body is JSON-encoded; none when sent as-is (string, `Blob`/`File`, `FormData`, `URLSearchParams`, stream, `ArrayBuffer`, typed array / `Buffer`) | an explicit header wins |
 | Accepted inbound request id (`trace$.seed`) | `SAFE_REQUEST_ID_REGEX` env, else `^[A-Za-z0-9._-]{1,128}$` | anything else is ignored and a fresh id generated |

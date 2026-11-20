@@ -154,6 +154,7 @@ type ClientConfig = {
   retries?: number                   // extra attempts for idempotent calls on net-error / 5xx (default 2)
   backoff?: Partial<Backoff>         // wait between retries (default exponential, 200ms–2s); partial merges over the default
   propagate?: boolean                // attach trace headers (default true; false for third-party)
+  health?: string                    // path or absolute URL health() calls (default '/health')
   fetch?: typeof fetch               // override (tests)
 }
 
@@ -169,6 +170,7 @@ type RequestConfig = {
 
 type HttpClient = {
   send(method, path, opts?): Promise<Response>              // raw Response, never throws on status
+  health(opts?): Promise<Result<unknown>>                   // GET the health endpoint; any 2xx is ok; never throws
   get   <T>(path, opts?): Promise<T>                        // parsed; throws HttpError on non-2xx
   post  <T>(path, opts?): Promise<T>
   put   <T>(path, opts?): Promise<T>
